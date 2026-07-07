@@ -7,3 +7,7 @@ edition = "2024"
 axum = "0.8.9"
 tokio = { version = "1.52.3", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
+tokio-postgres = "0.7.18"
+postgres-openssl = "0.5.3"
+openssl = "0.10.81"
+dotenvy = "0.15.7"
