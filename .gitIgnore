@@ -1,5 +1,5 @@
-z*
-
 target
-
 Cargo.lock
+.env
+z*
+frontend
