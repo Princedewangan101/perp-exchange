@@ -11,3 +11,7 @@ tokio-postgres = "0.7.18"
 postgres-openssl = "0.5.3"
 openssl = "0.10.81"
 dotenvy = "0.15.7"
+bcrypt = "0.19.2"
+jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
+axum-extra = { version = "0.12.6", features = ["cookie"] }
+chrono = "0.4"

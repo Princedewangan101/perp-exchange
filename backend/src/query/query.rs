@@ -1,48 +1,129 @@
 use tokio_postgres::Client;
 
-pub struct UserDetails {
-    // pub name: String,
-    pub email: String,
-}
 pub struct UserStatusResponse {
     pub is_user_exist: bool,
-    pub details: Option<UserDetails>,
+    pub email: Option<String>,
+}
+pub struct UserCreationResponse {
+    pub success: bool,
+    pub id: String,
+}
+
+#[derive(Debug)]
+pub struct User {
+    pub user_id: Option<String>,
+    pub email: Option<String>,
+    pub balance: Option<i64>,
 }
 
 pub async fn is_user_exist(postgres_client: &Client, email: &str) -> UserStatusResponse {
     let search_query_result = postgres_client
-        .query_one("SELECT name, email FROM users WHERE email = $1", &[&email])
+        .query_opt(
+            "SELECT userId, email FROM users WHERE email = $1 ",
+            &[&email],
+        )
         .await;
 
     match search_query_result {
-        Ok(row) => {
+        Ok(Some(row)) => {
+            println!("\n> user created");
             // let name_found:String = row.get(0);
-            let email_found:String = row.get(1);
+            let email_found: String = row.get(1);
             UserStatusResponse {
                 is_user_exist: true,
-                details: Some(UserDetails {
-                    // name: name_found, 
-                    email: email_found
-                }),
+                email: Some(email_found),
             }
+        }
+        Ok(None) => UserStatusResponse {
+            is_user_exist: false,
+            email: None,
         },
         Err(err) => {
             eprintln!("\n[ERROR] isUserExist err: {}", err.to_string());
-            if err.to_string().contains("0 rows were returned") {
-                UserStatusResponse {
-                    is_user_exist: false,
-                    details: None,
-                }
-            }else{
-                eprintln!("Database system error: {}", err);
-                UserStatusResponse {
-                    is_user_exist: false,
-                    details: None,
-                }
+            UserStatusResponse {
+                is_user_exist: false,
+                email: None,
             }
         }
     }
 }
+
+pub async fn create_user(
+    postgres_client: &Client,
+    email: &str,
+    password: &str,
+) -> UserCreationResponse {
+    let insert_query_result = postgres_client
+        .query_one(
+            "INSERT INTO users (email, password) VALUES ($1, $2) RETURNING userId",
+            &[&email, &password],
+        )
+        .await;
+
+    match insert_query_result {
+        Ok(row) => {
+            let id: i32 = row.get(0);
+            println!("\n> Created user with ID: {}", id);
+            UserCreationResponse {
+                success: true,
+                id: id.to_string(),
+            }
+        }
+        Err(err) => {
+            eprintln!("\n[ERROR] create_user : {}", err);
+            UserCreationResponse {
+                success: false,
+                id: "".to_string(),
+            }
+        }
+    }
+}
+
+pub async fn find_user(postgres_client: &Client, email: &str) -> User {
+    let search_query_result = postgres_client
+        .query_opt(
+            "SELECT userId, email, balance::BIGINT FROM users WHERE email = $1",
+            &[&email],
+        )
+        .await;
+
+    match search_query_result {
+        Ok(Some(row)) => {
+            // println!("> [SUCCESS] Row found matching email!");
+
+            // let name_found:String = row.get(0);
+            let user_id_found: i32 = row.get(0);
+            let email_found: String = row.get(1);
+            let balance_found: i64 = row.get(2);
+            User {
+                user_id: Some(user_id_found.to_string()),
+                email: Some(email_found),
+                balance: Some(balance_found),
+            }
+        }
+        Ok(None) => {
+            // println!(
+            //     "> [NOTICE] Ok(None) - Database executed successfully, but email '{}' does NOT exist in the users table.",
+            //     email
+            // );
+            User {
+                user_id: None,
+                email: None,
+                balance: None,
+            }
+        }
+        Err(err) => {
+            eprintln!("\n[ERROR] isUserExist err: {}", err.to_string());
+            User {
+                user_id: None,
+                email: None,
+                balance: None,
+            }
+        }
+    }
+}
+
+
 
 // postgres_client.execute("INSERT INTO users (name, email, password) VALUES ($1, $2, $3)", &[&])
 

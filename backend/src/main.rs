@@ -7,6 +7,7 @@ mod handlers;
 mod query;
 
 use handlers::signup::signup;
+use handlers::signin::signin;
 use config::db::postgres::connect_postgres;
 
 pub type DbState = Arc<Client>;
@@ -19,6 +20,7 @@ async fn main() {
 
     let app: Router = Router::new()
         .route("/api/signup", post(signup))
+        .route("/api/signin", post(signin))
         .with_state(shared_pg_client); 
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5000").await.unwrap();
