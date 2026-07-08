@@ -26,10 +26,11 @@ pub async fn connect_postgres() -> Result<Client, Error> {
 
     client
         .batch_execute(
-            "DROP TABLE IF EXISTS todos; CREATE TABLE todos 
+            "DROP TABLE IF EXISTS users; CREATE TABLE users 
     (
-    id SERIAL PRIMARY KEY,
-    task TEXT NOT NULL
+    userId SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    balance NUMERIC(12, 0) NOT NULL DEFAULT 0.00
     );",
         )
         .await?;
