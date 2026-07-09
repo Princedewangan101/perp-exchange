@@ -4,14 +4,12 @@ import "./globals.css";
 
 const nunito = Nunito({
   subsets: ["latin"],
-  // Optional: Specify weights if you don't want the full variable font
   weight: ["400", "600", "700"], 
   variable: "--font-nunito",
 });
 
 const qs = Quicksand({
   subsets: ["latin"],
-  // Optional: Specify weights if you don't want the full variable font
   weight: ["400", "600", "700"], 
   variable: "--font-quicksand",
 });
