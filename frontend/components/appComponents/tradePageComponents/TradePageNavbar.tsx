@@ -110,7 +110,7 @@ const TradePageNavbar = () => {
                 ) 
                 : 
                 (
-                    <Image src="/vercel.svg" alt='logo' width={18} height={18} />
+                    <Image src="/dp.png" alt='logo' width={30} height={30} className='rounded-full' />
                 )
                 }
             </div>
