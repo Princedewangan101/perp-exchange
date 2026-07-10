@@ -1,4 +1,4 @@
-use tokio_postgres::Client;
+use tokio_postgres::{Client, types::IsNull::No};
 
 pub struct UserStatusResponse {
     pub is_user_exist: bool,
@@ -14,6 +14,11 @@ pub struct User {
     pub user_id: Option<String>,
     pub email: Option<String>,
     pub balance: Option<i64>,
+}
+
+pub struct Deposit {
+    pub success: bool,
+    pub balance : Option<i64>,
 }
 
 pub async fn is_user_exist(postgres_client: &Client, email: &str) -> UserStatusResponse {
@@ -123,7 +128,20 @@ pub async fn find_user(postgres_client: &Client, email: &str) -> User {
     }
 }
 
+pub async fn deposit_balance(postgres_client: &Client, user_id:&str, amount: &str) -> Deposit {
+    let post_query_result = postgres_client.query_one("UPDATE users SET balance = balance + $1 WHERE id = $2 RETURNING balance", &[&amount, &user_id]).await;
 
+    match post_query_result {
+        Ok(row) => {
+            let balance = row.get(0);
+            Deposit { success: true, balance:balance }
+        }
+        Err(err) => {
+            eprintln!("\n[ERROR] deposit_query : {}", err);
+            Deposit { success: false, balance: None }
+        }
+    }
+}
 
 // postgres_client.execute("INSERT INTO users (name, email, password) VALUES ($1, $2, $3)", &[&])
 
