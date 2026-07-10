@@ -60,7 +60,10 @@ pub async fn signin(
         &my_claims,
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
     ) {
-        Ok(token) => token,
+        Ok(token) => {
+            println!("\n> token: {}", token);
+            token
+        }
         Err(_) => {
             let err_body = SigninResponse {
                 success: false,

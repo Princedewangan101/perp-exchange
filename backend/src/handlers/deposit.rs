@@ -17,16 +17,16 @@ pub struct DepositResponse {
 pub async fn deposit(
     State(state): State<AppState>,
     user: AuthenticatedUser,
-    Json(body): Json<DepositRequest>,
+    Json(req): Json<DepositRequest>,
 ) -> impl IntoResponse {
-    if body.amount.is_negative() {
+    if req.amount.is_negative() {
         return (StatusCode::BAD_REQUEST, Json(DepositResponse {
             success: false,
-            message: "missing required field".to_string(),
+            message: "amount cant be negative".to_string(),
         }));
     }
 
-    let response = deposit_balance(&state.db, &user.0, &body.amount.to_string()).await;
+    let response = deposit_balance(&state.db, &user.0, &req.amount.to_string()).await;
 
     if !response.success {
         return (StatusCode::CONFLICT, Json(DepositResponse {

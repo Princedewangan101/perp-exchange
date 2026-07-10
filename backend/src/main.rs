@@ -11,6 +11,7 @@ mod query;
 use config::db::postgres::connect_postgres;
 use config::redis::connect_redis;
 use handlers::deposit::deposit;
+use handlers::withdraw::withdraw;
 use handlers::signin::signin;
 use handlers::signup::signup;
 use middlewares::auth::auth;
@@ -36,6 +37,7 @@ async fn main() {
 
     let protected = Router::new()
         .route("/api/deposit", post(deposit))
+        .route("/api/withdraw", post(withdraw))
         .layer(middleware::from_fn(auth))
         .with_state(state.clone());
 

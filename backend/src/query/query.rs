@@ -1,4 +1,4 @@
-use tokio_postgres::{Client, types::IsNull::No};
+use tokio_postgres::{Client};
 
 pub struct UserStatusResponse {
     pub is_user_exist: bool,
@@ -18,7 +18,7 @@ pub struct User {
 
 pub struct Deposit {
     pub success: bool,
-    pub balance : Option<i64>,
+    pub balance: Option<i64>,
 }
 
 pub async fn is_user_exist(postgres_client: &Client, email: &str) -> UserStatusResponse {
@@ -128,17 +128,47 @@ pub async fn find_user(postgres_client: &Client, email: &str) -> User {
     }
 }
 
-pub async fn deposit_balance(postgres_client: &Client, user_id:&str, amount: &str) -> Deposit {
-    let post_query_result = postgres_client.query_one("UPDATE users SET balance = balance + $1 WHERE id = $2 RETURNING balance", &[&amount, &user_id]).await;
+pub async fn deposit_balance(postgres_client: &Client, user_id: &str, amount: &str) -> Deposit {
+    let post_query_result = postgres_client
+        .query_one(
+            "UPDATE users SET balance = balance + $1 WHERE id = $2 RETURNING balance",
+            &[&amount, &user_id],
+        )
+        .await;
 
     match post_query_result {
         Ok(row) => {
             let balance = row.get(0);
-            Deposit { success: true, balance:balance }
+            Deposit {
+                success: true,
+                balance: balance,
+            }
         }
         Err(err) => {
-            eprintln!("\n[ERROR] deposit_query : {}", err);
-            Deposit { success: false, balance: None }
+            eprintln!("\n[ERROR] deposit_balance : {}", err);
+            Deposit {
+                success: false,
+                balance: None,
+            }
+        }
+    }
+}
+
+pub async fn withdraw_balance(postgres_client: &Client, user_id: &str, amount: &str) -> bool {
+    let withdraw_query_result = postgres_client
+        .query_one(
+            "UPDATE users SET balance = balance - $1 WHERE userId = &2 AND balance >= &3",
+            &[&amount, &user_id, &amount],
+        )
+        .await;
+
+    match withdraw_query_result {
+        Ok(row) => {
+            return true;
+        }
+        Err(err) => {
+            eprintln!("\n[ERROR] withdraw_balance : {}", err);
+            return false;
         }
     }
 }
