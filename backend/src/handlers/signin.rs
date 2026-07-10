@@ -8,7 +8,7 @@ use axum_extra::extract::cookie::{Cookie, SameSite};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 
-use crate::{DbState, handlers::signup::Claims, query::query::find_user};
+use crate::{AppState, handlers::signup::Claims, query::query::find_user};
 
 #[derive(Deserialize)]
 pub struct SigninRequest {
@@ -23,7 +23,7 @@ pub struct SigninResponse {
 }
 
 pub async fn signin(
-    State(pg_client): State<DbState>,
+    State(state): State<AppState>,
     Json(req): Json<SigninRequest>,
 ) -> impl IntoResponse {
     let mut headers = HeaderMap::new();
@@ -38,7 +38,7 @@ pub async fn signin(
 
     let response_body;
 
-    let response = find_user(&pg_client, &req.email).await;
+    let response = find_user(&state.db, &req.email).await;
     println!("\n> response: {:?}", response);
     if response.user_id.is_none() {
         response_body = SigninResponse {

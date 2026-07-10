@@ -10,7 +10,7 @@ use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DbState,
+    AppState,
     query::query::{UserStatusResponse, create_user, is_user_exist},
 };
 
@@ -33,7 +33,7 @@ pub struct Claims {
 }
 
 pub async fn signup(
-    State(pg_client): State<DbState>,
+    State(state): State<AppState>,
     Json(req): Json<SignupRequest>,
 ) -> impl IntoResponse {
     let mut headers = HeaderMap::new();
@@ -46,7 +46,7 @@ pub async fn signup(
         return (StatusCode::BAD_REQUEST, headers, Json(response_body));
     }
 
-    let response: UserStatusResponse = is_user_exist(&pg_client, &req.email).await;
+    let response: UserStatusResponse = is_user_exist(&state.db, &req.email).await;
 
     let response_body: SignupResponse;
 
@@ -65,7 +65,7 @@ pub async fn signup(
         };
 
         // create user // there is a create_user fn in query.rs use that
-        let create_user_response = create_user(&pg_client, &req.email, &hashed_password).await;
+        let create_user_response = create_user(&state.db, &req.email, &hashed_password).await;
 
         if !create_user_response.success {
             response_body = SignupResponse {

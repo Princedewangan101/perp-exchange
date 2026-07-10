@@ -1,4 +1,5 @@
 use axum::{Router, routing::post};
+use redis::aio::ConnectionManager;
 use std::sync::Arc;
 use tokio_postgres::Client;
 
@@ -6,24 +7,36 @@ mod config;
 mod handlers;
 mod query;
 
-use handlers::signup::signup;
-use handlers::signin::signin;
 use config::db::postgres::connect_postgres;
+use config::redis::connect_redis;
+use handlers::signin::signin;
+use handlers::signup::signup;
 
 pub type DbState = Arc<Client>;
+pub type RedisState = Arc<ConnectionManager>;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub db: DbState,
+    pub redis: RedisState,
+}
 
 #[tokio::main]
 async fn main() {
     let pg_client = connect_postgres().await.unwrap();
+    let redis_cm = connect_redis().await.unwrap();
 
-    let shared_pg_client: DbState = Arc::new(pg_client);
+    let state = AppState {
+        db: Arc::new(pg_client),
+        redis: Arc::new(redis_cm),
+    };
 
     let app: Router = Router::new()
         .route("/api/signup", post(signup))
         .route("/api/signin", post(signin))
-        .with_state(shared_pg_client); 
+        .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5000").await.unwrap();
-    println!("\n>> server running on port 5000");
+    eprintln!("\n>> server running on port 5000");
     axum::serve(listener, app).await.unwrap();
 }
