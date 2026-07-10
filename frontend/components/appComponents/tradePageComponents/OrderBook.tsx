@@ -67,9 +67,8 @@ const OrderBook = ({ symbol }: { symbol: string }) => {
   return (
     <>
       {isOpen ? (
-        <div className="bg-zinc-950 px-1 rounded min-w-60 h-150 flex flex-col text-xs">
+        <div className="bg-zinc-950 px-1 rounded min-w-70 h-150 flex flex-col text-xs">
           <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
-            <span className="font-semibold text-sm">Price</span>
             <span>lock</span>
             <button
               onClick={() => setIsOpen(false)}

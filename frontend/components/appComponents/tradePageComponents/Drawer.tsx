@@ -69,7 +69,7 @@ const Drawer = () => {
                       <span className='text-[10px]'>{formateTime(closeTime).split(",")[0]}/{formateTime(closeTime).split(",")[1]}</span>
                     ) : "-"}
                   </div>
-                  <div className={`text-xs text-gray-300 ${columnWidths[10]} flex-shrink-0 my-2 py-1 px-2 text-center truncate`}>
+                  <div className={`text-xs text-gray-300 ${columnWidths[10]} shrink-0 my-2 py-1 px-2 text-center truncate`}>
                     {executionTime !== "-" ? (
                       <span className='text-[10px]'>{formateTime(executionTime).split(",")[0]}/{formateTime(executionTime).split(",")[1]}</span>
                     ) : "-"}

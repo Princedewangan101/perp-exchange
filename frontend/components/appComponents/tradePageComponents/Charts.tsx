@@ -158,15 +158,27 @@ const Charts = ({ symbol }: { symbol: string }) => {
 
       {!isChartLoaded && (<DotLoader />)}
 
-      <div className="absolute z-10 top-0 left-4">
-        <div className="border px-5">
-          flex
+      <div className="absolute z-10 top-0.5 right-22 rounded-full  bg-zinc-800">
+        <div className=" px-3">
+           <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+              <path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
+            </svg>
         </div>
       </div>
 
-      <div className="absolute z-10 top-0 left-1/2 -translate-x-1/2">
-        indicator
+      <div className="absolute z-10 bottom-30 left-0.5 rounded-full bg-zinc-800">
+        <div className="py-3">
+          <svg width="14" height="14" viewBox="0 0 15 15" fill="none" className="rotate-180 block">
+            <path d="M8.84182 3.13514C9.04327 3.32401 9.05348 3.64042 8.86462 3.84188L5.43521 7.49991L8.86462 11.1579C9.05348 11.3594 9.04327 11.6758 8.84182 11.8647C8.64036 12.0535 8.32394 12.0433 8.13508 11.8419L4.38508 7.84188C4.20477 7.64955 4.20477 7.35027 4.38508 7.15794L8.13508 3.15794C8.32394 2.95648 8.64036 2.94628 8.84182 3.13514Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
+          </svg>
+        </div>
       </div>
+
+      {/* <div className="absolute z-10 top-0.5 left-1/2 -translate-x-1/2">
+        <div className="border h-10 w-120">
+          indicator n all
+        </div>
+      </div> */}
 
       <div className="w-full flex bg-zinc-s rounded py-1">
         <div className="h-full flex gap-1 ml-3">
@@ -222,7 +234,7 @@ const Charts = ({ symbol }: { symbol: string }) => {
         </div>
       </div>
 
-      
+
     </div>
   )
 }

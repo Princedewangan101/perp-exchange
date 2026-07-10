@@ -1,7 +1,11 @@
+"use client";
 import TradePageNavbar from '@/components/appComponents/tradePageComponents/TradePageNavbar';
-import React from 'react'
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+
 
 const page = () => {
+    const router = useRouter();
 
     const spot = [
         { symbol: "BTC/USD", name: "Bitcoin", price: "65847.80", volume: "$28.4B", marketCap: "1.3T", chnagetwofour: "+3.56%" },
@@ -25,7 +29,7 @@ const page = () => {
     ];
 
     return (
-        <div className='h-screen w-full flex flex-col gap-1'>
+        <div className='w-full flex flex-col gap-1'>
             <TradePageNavbar />
             <div className='w-[80%] mx-auto '>
                 <main className='relative border h-80 bg-zinc-900/40 rounded-2xl'>
@@ -42,24 +46,29 @@ const page = () => {
             <div className='w-[80%] mx-auto bg-zinc-900/40'>
                 CARDS
             </div>
-            <main className='w-[80%] mx-auto bg-zinc-900/40'>
-                <div className='w-[95%] mx-auto'>
-                    <div className='flex gap-3'>
-                        <p>SPOT</p>
-                        <p>FUTURE</p>
+            <main className='w-[80%] mx-auto  bg-zinc-900/40'>
+                <div className='w-[95%] mx-auto cursor-default'>
+                    <div className='flex gap-3 my-4 cursor-default'>
+                        <p className='px-2 py-1 w-25 text-center rounded-md text-gray-600 hover:text-gray-300'>SPOT</p>
+                        <p className='px-2 py-1 w-25 text-center rounded-md text-gray-600 hover:text-gray-300'>FUTURE</p>
                     </div>
-                    <div className='flex justify-between gap-3 '>
-                        <p>symbol</p>
-                        <p>price</p>
-                        <p>openInterest</p>
-                        <p>chnagetwofour</p>
-                        <p>graph</p>
+                    <div className='flex justify-between gap-3 my-2 text-gray-500 pl-4'>
+                        <p className='w-50'>symbol</p>
+                        <p className='w-30'>price</p>
+                        <p className='w-30'>openInterest</p>
+                        <p className='w-30'>chnagetwofour</p>
+                        <p className='w-30'>graph</p>
                     </div>
                     {
                         perp.map(({ symbol, price, openInterest, chnagetwofour }) => (
-                            <div className='flex justify-between gap-3 '>
+                            <div onClick={() => { router.push(`/trade/${symbol}`) }} key={symbol} className='flex justify-between gap-3 hover:bg-zinc-900/80 pl-4'>
 
-                                <p className='w-30  py-2 font-semibold text-lg'>{symbol}</p>
+                                <div className='w-50  py-2 font-semibold text-lg flex gap-2'>
+                                    <Image src="/solanalogo.png" alt='logo' height={20} width={25} 
+                                    className=''
+                                    />
+                                    <p>{symbol}</p>
+                                </div>
                                 <p className='w-30  py-2 font-semibold text-lg'>{price}</p>
                                 <p className='w-30  py-2 font-semibold text-lg'>{openInterest}</p>
                                 <p className='w-30  py-2 font-semibold text-lg'>{chnagetwofour}</p>
@@ -67,9 +76,11 @@ const page = () => {
                             </div>
                         ))
                     }
-
                 </div>
             </main>
+            <footer className='h-100 w-full bg-zinc-900/40'>
+d
+            </footer>
 
         </div>
     )
