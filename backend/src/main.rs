@@ -1,16 +1,19 @@
-use axum::{Router, routing::post};
+use axum::{Router, middleware, routing::post};
 use redis::aio::ConnectionManager;
 use std::sync::Arc;
 use tokio_postgres::Client;
 
 mod config;
 mod handlers;
+mod middlewares;
 mod query;
 
 use config::db::postgres::connect_postgres;
 use config::redis::connect_redis;
+use handlers::deposit::deposit;
 use handlers::signin::signin;
 use handlers::signup::signup;
+use middlewares::auth::auth;
 
 pub type DbState = Arc<Client>;
 pub type RedisState = Arc<ConnectionManager>;
@@ -31,9 +34,15 @@ async fn main() {
         redis: Arc::new(redis_cm),
     };
 
+    let protected = Router::new()
+        .route("/api/deposit", post(deposit))
+        .layer(middleware::from_fn(auth))
+        .with_state(state.clone());
+
     let app: Router = Router::new()
         .route("/api/signup", post(signup))
         .route("/api/signin", post(signin))
+        .merge(protected)
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5000").await.unwrap();
