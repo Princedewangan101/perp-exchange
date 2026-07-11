@@ -11,6 +11,7 @@ interface AppStoreStateType {
     lockedBalance: number,
     isDrawerOpen: boolean,
     dropupOpen: boolean,
+    expire: number,
     setUserId: (userIdFromServer: string) => void
     setUserName: (userNameFromServer: string) => void
     setBalance: (balance: number) => void
@@ -30,14 +31,26 @@ export const useAppStore = create<AppStoreStateType>()(
             symbol: "",
             isDrawerOpen: true,
             dropupOpen: false,
-            setUserId: (userIdFromServer: string) => set({ userId: userIdFromServer }),
+            expire: 0,
+            setUserId: (userIdFromServer: string) => set({ userId: userIdFromServer, expire: Date.now() + 86400000 }),
             setUserName: (userNameFromServer: string) => set({ userName: userNameFromServer }),
             setBalance: (balance: number) => set({ totalBalance: balance }),
             setIsDrawerOpen: (isDrawerOpen: boolean) => set({ isDrawerOpen }),
             setDropupOpen: (dropupOpen: boolean) => set({ dropupOpen })
         }),
         {
-            name: "tradingAppStorage"
+            name: "perp-exchange",
+            partialize: (state) => ({
+                userId: state.userId,
+                expire: state.expire,
+            }),
+            merge: (persisted, current) => {
+                const p = persisted as { userId?: string; expire?: number }
+                if (p.expire && p.expire < Date.now()) {
+                    return current
+                }
+                return { ...current, ...p }
+            }
         }
     )
 )
