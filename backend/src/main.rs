@@ -10,6 +10,7 @@ mod query;
 
 use config::db::postgres::connect_postgres;
 use config::redis::connect_redis;
+use config::nats::connect_nats;
 use handlers::deposit::deposit;
 use handlers::withdraw::withdraw;
 use handlers::signin::signin;
@@ -23,16 +24,19 @@ pub type RedisState = Arc<ConnectionManager>;
 pub struct AppState {
     pub db: DbState,
     pub redis: RedisState,
+    pub nats: async_nats::Client,
 }
 
 #[tokio::main]
 async fn main() {
     let pg_client = connect_postgres().await.unwrap();
     let redis_cm = connect_redis().await.unwrap();
+    let nats_cm = connect_nats().await.unwrap();
 
     let state = AppState {
         db: Arc::new(pg_client),
         redis: Arc::new(redis_cm),
+        nats: Arc::new(nats_cm)
     };
 
     let protected = Router::new()

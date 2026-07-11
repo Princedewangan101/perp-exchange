@@ -16,3 +16,4 @@ jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
 axum-extra = { version = "0.12.6", features = ["cookie"] }
 chrono = "0.4"
 redis = { version = "0.29", features = ["tokio-comp", "connection-manager"] }
+async-nats = "0.49.1"
