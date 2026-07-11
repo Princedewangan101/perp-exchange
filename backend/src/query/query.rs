@@ -163,7 +163,7 @@ pub async fn withdraw_balance(postgres_client: &Client, user_id: &str, amount: &
         .await;
 
     match withdraw_query_result {
-        Ok(row) => {
+        Ok(_) => {
             return true;
         }
         Err(err) => {

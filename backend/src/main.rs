@@ -36,7 +36,7 @@ async fn main() {
     let state = AppState {
         db: Arc::new(pg_client),
         redis: Arc::new(redis_cm),
-        nats: Arc::new(nats_cm)
+        nats: nats_cm
     };
 
     let protected = Router::new()
