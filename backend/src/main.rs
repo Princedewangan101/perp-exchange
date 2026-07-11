@@ -6,6 +6,7 @@ use tokio_postgres::Client;
 mod config;
 mod handlers;
 mod middlewares;
+mod proto;
 mod query;
 
 use config::db::postgres::connect_postgres;
@@ -13,6 +14,7 @@ use config::redis::connect_redis;
 use config::nats::connect_nats;
 use handlers::deposit::deposit;
 use handlers::withdraw::withdraw;
+use handlers::market::market;
 use handlers::signin::signin;
 use handlers::signup::signup;
 use middlewares::auth::auth;
@@ -42,6 +44,7 @@ async fn main() {
     let protected = Router::new()
         .route("/api/deposit", post(deposit))
         .route("/api/withdraw", post(withdraw))
+        .route("/api/market", post(market))
         .layer(middleware::from_fn(auth))
         .with_state(state.clone());
 

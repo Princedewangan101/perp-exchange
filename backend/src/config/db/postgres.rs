@@ -55,6 +55,7 @@ pub async fn connect_postgres() -> Result<Client, Error> {
         CREATE TABLE IF NOT EXISTS orders (
             orderId SERIAL PRIMARY KEY,
             userId INT NOT NULL REFERENCES users(userId) ON DELETE CASCADE,
+            symbol TEXT NOT NULL,
             quantity INT NOT NULL,
             side SMALLINT NOT NULL CHECK (side IN (0, 1)),
             type orderType NOT NULL DEFAULT 'spot',
