@@ -40,7 +40,6 @@ pub async fn connect_postgres() -> Result<Client, Error> {
             CREATE TYPE orderType AS ENUM ('spot', 'perpf');
             CREATE TYPE orderCloseType AS ENUM ('tp', 'sl', 'manual', 'lowBalance');
             CREATE TYPE orderStatus AS ENUM ('pending', 'running', 'completed');
-            CREATE TYPE sideType AS ENUM (0, 1);
         EXCEPTION
             WHEN duplicate_object THEN NULL;
         END $$;
@@ -49,7 +48,7 @@ pub async fn connect_postgres() -> Result<Client, Error> {
             transactionId SERIAL PRIMARY KEY,
             userId INT NOT NULL REFERENCES users(userId) ON DELETE CASCADE,
             balance NUMERIC(12, 0) NOT NULL DEFAULT 0.00,
-            type txType NOT NULL 
+            type txType NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
 

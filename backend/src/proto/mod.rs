@@ -35,9 +35,25 @@ pub struct LimitOrderRequest {
 }
 
 #[derive(Clone, PartialEq, Message)]
+pub struct ModifyOrderRequest {
+    #[prost(string, tag = "1")]
+    pub user_id: String,
+    #[prost(uint64, tag = "2")]
+    pub tp: u64,
+    #[prost(uint64, tag = "3")]
+    pub sl: u64,
+}
+
+#[derive(Clone, PartialEq, Message)]
 pub struct OrderResponse {
     #[prost(string, tag = "1")]
     pub message: String,
     #[prost(uint32, tag = "2")]
     pub quantity: u32,
+}
+
+#[derive(Clone, PartialEq, Message)]
+pub struct ModifyResponse {
+    #[prost(string, tag = "1")]
+    pub message: String,
 }

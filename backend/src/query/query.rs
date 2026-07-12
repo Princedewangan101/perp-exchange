@@ -1,5 +1,7 @@
 use tokio_postgres::Client;
 
+use crate::handlers::modify;
+
 pub struct UserStatusResponse {
     pub is_user_exist: bool,
     pub email: Option<String>,
@@ -157,7 +159,7 @@ pub async fn deposit_balance(postgres_client: &Client, user_id: &str, amount: &s
 pub async fn withdraw_balance(postgres_client: &Client, user_id: &str, amount: &str) -> bool {
     let withdraw_query_result = postgres_client
         .query_one(
-            "UPDATE users SET balance = balance - $1 WHERE userId = &2 AND balance >= &3",
+            "UPDATE users SET balance = balance - $1 WHERE userId = $2 AND balance >= $3",
             &[&amount, &user_id, &amount],
         )
         .await;
@@ -268,6 +270,63 @@ pub async fn limit_order(
         Err(err) => {
             eprintln!("\n[ERROR] limit_order query failed: {}", err);
             false
+        }
+    }
+}
+
+pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &u64, sl: &u64) -> bool {
+    let pg_tp = *tp as i64;
+    let pg_sl = *sl as i64;
+
+    let modify_query_response;
+
+    if pg_tp == 0 {
+        modify_query_response = postgres_client
+            .query_one(
+                "UPDATE users SET sl = $1 WHERE userId = $2",
+                &[&pg_sl, &user_id],
+            )
+            .await;
+        match modify_query_response {
+            Ok(_) => {
+                return true;
+            }
+            Err(err) => {
+                eprintln!("\n[ERROR] modify_query : {}", err);
+                return false;
+            }
+        }
+    } else if pg_sl == 0 {
+        modify_query_response = postgres_client
+            .query_one(
+                "UPDATE users SET tp = $1 WHERE userId = $2",
+                &[&pg_tp, &user_id],
+            )
+            .await;
+        match modify_query_response {
+            Ok(_) => {
+                return true;
+            }
+            Err(err) => {
+                eprintln!("\n[ERROR] modify_query : {}", err);
+                return false;
+            }
+        }
+    } else {
+        modify_query_response = postgres_client
+            .query_one(
+                "UPDATE users SET tp = $1 AND sl = $2 WHERE userId = $3",
+                &[&pg_tp, &pg_sl, &user_id],
+            )
+            .await;
+        match modify_query_response {
+            Ok(_) => {
+                return true;
+            }
+            Err(err) => {
+                eprintln!("\n[ERROR] modify_query : {}", err);
+                return false;
+            }
         }
     }
 }
