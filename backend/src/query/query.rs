@@ -1,3 +1,5 @@
+use std::path::absolute;
+
 use tokio_postgres::Client;
 
 pub struct UserStatusResponse {
@@ -181,6 +183,7 @@ pub async fn limit_order(
     side: &u32,
     order_type: &str,
     status: String,
+    leverage: &u32,
     tp: &u64,
     sl: &u64,
     open: &u64,
@@ -196,7 +199,7 @@ pub async fn limit_order(
     if pg_tp == 0 && pg_sl == 0 {
         withdraw_query_result = postgres_client
             .query_one(
-                "INSERT INTO orders (userId, symbol, quantity, side, type, status, open) 
+                "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, open) 
              VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 &[
                     &user_id,
@@ -205,6 +208,7 @@ pub async fn limit_order(
                     &pg_side,
                     &order_type,
                     &status,
+                    &leverage,
                     &pg_open,
                 ],
             )
@@ -212,7 +216,7 @@ pub async fn limit_order(
     } else if pg_tp == 0 {
         withdraw_query_result = postgres_client
             .query_one(
-                "INSERT INTO orders (userId, symbol, quantity, side, type, status, sl, open) 
+                "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, sl, open) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                 &[
                     &user_id,
@@ -221,6 +225,7 @@ pub async fn limit_order(
                     &pg_side,
                     &order_type,
                     &status,
+                    &leverage,
                     &pg_sl,
                     &pg_open,
                 ],
@@ -229,7 +234,7 @@ pub async fn limit_order(
     } else if pg_sl == 0 {
         withdraw_query_result = postgres_client
             .query_one(
-                "INSERT INTO orders (userId, symbol, quantity, side, type, status, tp, open) 
+                "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, tp, open) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                 &[
                     &user_id,
@@ -238,6 +243,7 @@ pub async fn limit_order(
                     &pg_side,
                     &order_type,
                     &status,
+                    &leverage,
                     &pg_tp,
                     &pg_open,
                 ],
@@ -246,7 +252,7 @@ pub async fn limit_order(
     } else {
         withdraw_query_result = postgres_client
             .query_one(
-                "INSERT INTO orders (userId, symbol, quantity, side, type, status, tp, sl, open) 
+                "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, tp, sl, open) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
                 &[
                     &user_id,
@@ -255,6 +261,7 @@ pub async fn limit_order(
                     &pg_side,
                     &order_type,
                     &status,
+                    &leverage,
                     &pg_tp,
                     &pg_sl,
                     &pg_open,
@@ -332,6 +339,7 @@ pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &u64, sl:
 pub async fn close_order(
     postgres_client: &Client,
     user_id: &str,
+    order_id: &str,
     close_price: &u64,
     close_type: &str,
 ) -> bool {
@@ -339,7 +347,7 @@ pub async fn close_order(
 
     let close_query_result = postgres_client
         .query_one(
-            "UPDATE orders SET close = &1 AND closeType = $2 WHERE userId =$3",
+            "UPDATE orders SET close = &1 AND closeType = $2 WHERE userId =$3 AND orderId = $4",
             &[&pg_close_price, &close_type, &user_id],
         )
         .await;
@@ -355,29 +363,89 @@ pub async fn close_order(
     }
 }
 
-// postgres_client.execute("INSERT INTO users (name, email, password) VALUES ($1, $2, $3)", &[&])
+pub async fn update_balance(
+    postgres_client: &Client,
+    order_id: &str,
+    user_id: &str,
+    close_price: &u64,
+) -> bool {
+    let pg_close_price = *close_price as i64;
 
-// // --- Start Transaction for atomic CRUD Operations ---
-// let transaction = client.transaction().await?;
-// println!("\nTransaction started.");
+    let order_result = postgres_client
+        .query_opt(
+            "SELECT open, side, leverage  FROM orders WHERE orderId = $1 AND userId = $2",
+            &[&order_id, &user_id],
+        )
+        .await;
 
-// // CREATE: Insert a new todo item
-// transaction.execute("INSERT INTO todos (task) VALUES ($1)", &[&"Learn Neon with Rust"]).await?;
-// println!("CREATE: Row inserted.");
+    match order_result {
+        Ok(Some(row)) => {
+            let open_price_found: i64 = row.get(0);
+            let side_found: u32 = row.get(1);
+            let leverage_found: u32 = row.get(3);
 
-// // READ: Retrieve the new todo item
-// let row = transaction.query_one("SELECT task FROM todos WHERE task = $1", &[&"Learn Neon with Rust"]).await?;
-// let task: &str = row.get(0);
-// println!("READ: Fetched task - '{}'", task);
+            let is_profit: bool;
+            let sum: i64;
 
-// // UPDATE: Modify the todo item
-// transaction.execute("UPDATE todos SET task = $1 WHERE task = $2", &[&"Master Neon with Rust!", &"Learn Neon with Rust"]).await?;
-// println!("UPDATE: Row updated.");
+            if side_found == 0 {
+                // sell side
+                let diff = open_price_found - pg_close_price;
+                if diff > 0 {
+                    is_profit = true
+                } else {
+                    is_profit = false
+                }
+                sum =  (diff.abs()) * leverage_found as i64 
+            } else {
+                // buy side
+                let diff = pg_close_price - open_price_found;
+                if diff > 0 {
+                    is_profit = true
+                } else {
+                    is_profit = false
+                }
+                sum =  (diff.abs()) * leverage_found as i64 
+            }
 
-// // DELETE: Remove the todo item
-// transaction.execute("DELETE FROM todos WHERE task = $1", &[&"Master Neon with Rust!"]).await?;
-// println!("DELETE: Row deleted.");
+            if is_profit {
+                let balance_update_query_response = postgres_client
+                .query_one(
+                    "UPDATE users SET balance = balance + $1 WHERE userId = $2",
+                    &[&sum, &user_id],
+                )
+                .await;
+                match balance_update_query_response {
+                    Ok(_) => {
+                        return true;
+                    }
+                    Err(err) => {
+                        eprintln!("\n[ERROR] modify_query : {}", err);
+                        return false;
+                    }
+                }
+            } else {
+                let balance_update_query_response = postgres_client
+                .query_one(
+                    "UPDATE users SET balance = balance - $1 WHERE userId = $2 AND balance >= $3",
+                    &[&sum, &user_id, &sum],
+                )
+                .await;
+                match balance_update_query_response {
+                    Ok(_) => {
+                        return true;
+                    }
+                    Err(err) => {
+                        eprintln!("\n[ERROR] modify_query : {}", err);
+                        return false;
+                    }
+                }
+            }
+        }
+        Ok(None) => return false,
+        Err(err) => {
+            eprintln!("\n[ERROR] isUserExist err: {}", err.to_string());
+            return false;
+        }
+    }
+}
 
-// --- Commit Transaction ---
-// transaction.commit().await?;
-// println!("Transaction committed successfully.\n");

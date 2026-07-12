@@ -4,7 +4,7 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::proto;
-use crate::query::query::close_order;
+use crate::query::query::{close_order, update_balance};
 
 #[derive(Deserialize)]
 pub struct MarketRequest {
@@ -50,7 +50,7 @@ if req.order_id.is_empty() {
     {
         Ok(reply_message) => match proto::CloseOrderResponse::decode(reply_message.payload) {
             Ok(proto_res) => {
-                let response = close_order(&state.db, &user.0, &proto_res.close_price, "manual").await;
+                let response = close_order(&state.db, &user.0, &req.order_id, &proto_res.close_price, "manual").await;
 
                 if !response {
                     return (
@@ -58,6 +58,18 @@ if req.order_id.is_empty() {
                         Json(MarketResponse {
                             success: false,
                             message: "failed to modify".to_string(),
+                        }),
+                    );
+                }
+
+                let balance_response = update_balance(&state.db, &req.order_id, &user.0, &proto_res.close_price).await;
+
+                if !balance_response {
+                    return (
+                        StatusCode::CONFLICT,
+                        Json(MarketResponse {
+                            success: false,
+                            message: "failed to update balance".to_string(),
                         }),
                     );
                 }

@@ -60,6 +60,7 @@ pub async fn connect_postgres() -> Result<Client, Error> {
             side SMALLINT NOT NULL CHECK (side IN (0, 1)),
             type orderType NOT NULL DEFAULT 'spot',
             status orderStatus NOT NULL,
+            leverage INT,
             tp INT,
             sl INT,
             open INT NOT NULL,
