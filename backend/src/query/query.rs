@@ -1,7 +1,5 @@
 use tokio_postgres::Client;
 
-use crate::handlers::modify;
-
 pub struct UserStatusResponse {
     pub is_user_exist: bool,
     pub email: Option<String>,
@@ -327,6 +325,32 @@ pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &u64, sl:
                 eprintln!("\n[ERROR] modify_query : {}", err);
                 return false;
             }
+        }
+    }
+}
+
+pub async fn close_order(
+    postgres_client: &Client,
+    user_id: &str,
+    close_price: &u64,
+    close_type: &str,
+) -> bool {
+    let pg_close_price = *close_price as i64;
+
+    let close_query_result = postgres_client
+        .query_one(
+            "UPDATE orders SET close = &1 AND closeType = $2 WHERE userId =$3",
+            &[&pg_close_price, &close_type, &user_id],
+        )
+        .await;
+
+    match close_query_result {
+        Ok(_) => {
+            return true;
+        }
+        Err(err) => {
+            eprintln!("\n[ERROR] close_order : {}", err);
+            return false;
         }
     }
 }

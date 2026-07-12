@@ -64,7 +64,7 @@ pub async fn connect_postgres() -> Result<Client, Error> {
             sl INT,
             open INT NOT NULL,
             close INT,
-            closeType orderCloseType,
+            closeType orderCloseType ,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );

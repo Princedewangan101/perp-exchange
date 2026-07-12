@@ -17,6 +17,7 @@ use handlers::withdraw::withdraw;
 use handlers::market::market;
 use handlers::limit::limit;
 use handlers::modify::modify;
+use handlers::close::close;
 use handlers::signin::signin;
 use handlers::signup::signup;
 use middlewares::auth::auth;
@@ -49,6 +50,7 @@ async fn main() {
         .route("/api/market", post(market))
         .route("/api/limit", post(limit))
         .route("/api/modify", post(modify))
+        .route("/api/close", post(close))
         .layer(middleware::from_fn(auth))
         .with_state(state.clone());
 
