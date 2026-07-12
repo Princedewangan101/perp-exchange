@@ -39,6 +39,7 @@ pub async fn connect_postgres() -> Result<Client, Error> {
             CREATE TYPE txType AS ENUM ('deposit', 'withdraw', 'profit', 'loss');
             CREATE TYPE orderType AS ENUM ('spot', 'perpf');
             CREATE TYPE orderCloseType AS ENUM ('tp', 'sl', 'manual', 'lowBalance');
+            CREATE TYPE orderStatus AS ENUM ('pending', 'running', 'completed');
             CREATE TYPE sideType AS ENUM (0, 1);
         EXCEPTION
             WHEN duplicate_object THEN NULL;
@@ -59,11 +60,12 @@ pub async fn connect_postgres() -> Result<Client, Error> {
             quantity INT NOT NULL,
             side SMALLINT NOT NULL CHECK (side IN (0, 1)),
             type orderType NOT NULL DEFAULT 'spot',
+            status orderStatus NOT NULL,
             tp INT,
             sl INT,
             open INT NOT NULL,
-            close INT NOT NULL,
-            closeType orderCloseType NOT NULL DEFAULT 'manual',
+            close INT,
+            closeType orderCloseType,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );

@@ -1,4 +1,4 @@
-use tokio_postgres::{Client};
+use tokio_postgres::Client;
 
 pub struct UserStatusResponse {
     pub is_user_exist: bool,
@@ -169,6 +169,105 @@ pub async fn withdraw_balance(postgres_client: &Client, user_id: &str, amount: &
         Err(err) => {
             eprintln!("\n[ERROR] withdraw_balance : {}", err);
             return false;
+        }
+    }
+}
+
+pub async fn limit_order(
+    postgres_client: &Client,
+    user_id: &str,
+    symbol: &str,
+    quantity: &u32,
+    side: &u32,
+    order_type: &str,
+    status: String,
+    tp: &u64,
+    sl: &u64,
+    open: &u64,
+) -> bool {
+    let pg_quantity = *quantity as i32;
+    let pg_side = *side as i16;
+    let pg_tp = *tp as i64;
+    let pg_sl = *sl as i64;
+    let pg_open = *open as i64;
+
+    let withdraw_query_result;
+
+    if pg_tp == 0 && pg_sl == 0 {
+        withdraw_query_result = postgres_client
+            .query_one(
+                "INSERT INTO orders (userId, symbol, quantity, side, type, status, open) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                &[
+                    &user_id,
+                    &symbol,
+                    &pg_quantity,
+                    &pg_side,
+                    &order_type,
+                    &status,
+                    &pg_open,
+                ],
+            )
+            .await;
+    } else if pg_tp == 0 {
+        withdraw_query_result = postgres_client
+            .query_one(
+                "INSERT INTO orders (userId, symbol, quantity, side, type, status, sl, open) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                &[
+                    &user_id,
+                    &symbol,
+                    &pg_quantity,
+                    &pg_side,
+                    &order_type,
+                    &status,
+                    &pg_sl,
+                    &pg_open,
+                ],
+            )
+            .await;
+    } else if pg_sl == 0 {
+        withdraw_query_result = postgres_client
+            .query_one(
+                "INSERT INTO orders (userId, symbol, quantity, side, type, status, tp, open) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                &[
+                    &user_id,
+                    &symbol,
+                    &pg_quantity,
+                    &pg_side,
+                    &order_type,
+                    &status,
+                    &pg_tp,
+                    &pg_open,
+                ],
+            )
+            .await;
+    } else {
+        withdraw_query_result = postgres_client
+            .query_one(
+                "INSERT INTO orders (userId, symbol, quantity, side, type, status, tp, sl, open) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                &[
+                    &user_id,
+                    &symbol,
+                    &pg_quantity,
+                    &pg_side,
+                    &order_type,
+                    &status,
+                    &pg_tp,
+                    &pg_sl,
+                    &pg_open,
+                ],
+            )
+            .await;
+    }
+
+    match withdraw_query_result {
+        Ok(_) => true,
+        Err(err) => {
+            eprintln!("\n[ERROR] limit_order query failed: {}", err);
+            false
         }
     }
 }
