@@ -1,16 +1,21 @@
 "use client";
 
 import { useAppStore } from '@/store/store';
+import { maskEmail } from '@/lib/utils';
 import Image from 'next/image'
-import React from 'react'
+import React, { useEffect } from 'react'
 
 const TradePageNavbar = () => {
     console.log("> userId (TradePageNavbar.tsx)", useAppStore.getState().userId);
-    
+
     const [moreOpen, setMoreOpen] = React.useState(false);
     const moreRef = React.useRef<HTMLDivElement>(null);
+    const [profileOpen, setProfileOpen] = React.useState(false);
+    const profileRef = React.useRef<HTMLDivElement>(null);
     const [hydrated, setHydrated] = React.useState(false);
+
     const userId = useAppStore((state) => state.userId);
+    const userEmail = useAppStore((state) => state.userEmail);
 
     React.useEffect(() => {
         setHydrated(true);
@@ -21,6 +26,9 @@ const TradePageNavbar = () => {
             if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
                 setMoreOpen(false);
             }
+            if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+                setProfileOpen(false);
+            }
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
@@ -28,10 +36,13 @@ const TradePageNavbar = () => {
 
     return (
         <nav className='h-10 flex items-center justify-between px-3  text-zinc-300 text-sm'>
+            {/* LOGO */}
             <div className='flex items-center gap-2'>
                 <Image src="/vercel.svg" alt='logo' width={18} height={18} />
                 <p className='text-base font-bold text-white'>Exchange</p>
             </div>
+
+            {/* LEFT DIV */}
             <div className='flex items-center gap-1 mr-auto ml-10'>
                 <button className='px-3 py-1 rounded text-gray-400 hover:text-white'>SPOT</button>
                 <button className='px-3 py-1 rounded text-gray-400 hover:text-white'>FUTURE</button>
@@ -54,12 +65,17 @@ const TradePageNavbar = () => {
                     )}
                 </div>
             </div>
+
+            {/* RIGHT DIV */}
             <div className='flex items-center gap-2'>
+                {/* SEARCH ICON */}
                 <button className='p-1.5 rounded text-gray-500 hover:text-white'>
                     <svg width="20" height="20" viewBox="0 0 15 15" fill="none">
                         <path d="M10 6.5C10 8.433 8.433 10 6.5 10C4.567 10 3 8.433 3 6.5C3 4.567 4.567 3 6.5 3C8.433 3 10 4.567 10 6.5ZM9.30884 10.0159C8.53901 10.6318 7.56251 11 6.5 11C4.01472 11 2 8.98528 2 6.5C2 4.01472 4.01472 2 6.5 2C8.98528 2 11 4.01472 11 6.5C11 7.56251 10.6318 8.53901 10.0159 9.30884L12.8536 12.1464C13.0488 12.3417 13.0488 12.6583 12.8536 12.8536C12.6583 13.0488 12.3417 13.0488 12.1464 12.8536L9.30884 10.0159Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
                     </svg>
                 </button>
+
+                {/* SUN ICON */}
                 <button className='p-1.5 rounded text-gray-500 hover:text-white'>
                     <svg
                         xmlns="http://w3.org"
@@ -83,6 +99,8 @@ const TradePageNavbar = () => {
                         <path d="m19.07 4.93-1.41 1.41" />
                     </svg>
                 </button>
+
+                {/* MOON ICON */}
                 <button className='p-1.5 rounded text-gray-500 hover:text-white'>
                     <svg
                         xmlns="http://w3.org"
@@ -93,7 +111,7 @@ const TradePageNavbar = () => {
                         stroke="currentColor"
                         strokeWidth="2"
                         strokeLinecap="round"
-                         strokeLinejoin="round"
+                        strokeLinejoin="round"
                     >
                         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                     </svg>
@@ -107,11 +125,23 @@ const TradePageNavbar = () => {
                             Signup
                         </button>
                     </>
-                ) 
-                : 
-                (
-                    <Image src="/dp.png" alt='logo' width={30} height={30} className='rounded-full' />
                 )
+                    :
+                    (<>
+                        <div className='relative' ref={profileRef}>
+                            <button onClick={() => setProfileOpen(!profileOpen)} className='p-0'>
+                                <Image src="/dp.png" alt='logo' width={30} height={30} className='rounded-full' />
+                            </button>
+                            {profileOpen && (
+                                <div className='absolute top-full right-0 mt-1 w-48 bg-[#101011] border border-[#222225] rounded-xl shadow-lg z-50 p-3'>
+                                    <p className='text-sm text-zinc-400 font-bold truncate cursor-default'>{maskEmail(userEmail)}</p>
+                                    <button className='text-gray-500 hover:text-gray-300 mt-2 font-bold'>Logout</button>
+                                    {/* <p className='text-xs text-zinc-400'>User ID: <span className='text-sm font-bold '>{userId}</span></p> */}
+                                </div>
+                            )}
+                        </div>
+                    </>
+                    )
                 }
             </div>
         </nav>

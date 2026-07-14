@@ -12,3 +12,9 @@ export const delay = async (ms: number) => {
     }, ms)
   })
 }
+
+export const maskEmail = (email: string) => {
+  const [local, domain] = email.split('@');
+  if (local.length <= 4) return email;
+  return local.slice(0, 2) + '...' + local.slice(-2) + '@' + domain;
+}
