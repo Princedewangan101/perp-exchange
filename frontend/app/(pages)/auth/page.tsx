@@ -6,6 +6,8 @@ import React from 'react'
 import toast from 'react-hot-toast';
 import { useAppStore } from '@/store/store';
 import { isValidEmail } from '@/app/utils/emailValidation';
+import Link from 'next/link';
+import { sign } from 'crypto';
 
 const page = () => {
     const router = useRouter()
@@ -13,10 +15,12 @@ const page = () => {
     const [email, setEmail] = React.useState<string>("");
     const [password, setPassword] = React.useState<string>("");
     const [openPasswordInput, setopenPasswordInput] = React.useState<boolean>(false);
+    const [authpage, setAuthpage] = React.useState<"signup" | "signin">("signup");
+
 
     const mutation = useMutation({
         mutationFn: async (data: { email: string, password: string }) => {
-            const response = await axios.post('http://localhost:5000/api/signup', data)
+            const response = await axios.post(`http://localhost:5000/api/${authpage}`, data)
             return response.data
         },
         onSuccess: (data) => {
@@ -59,7 +63,13 @@ const page = () => {
         setopenPasswordInput(false)
     }
     return (
-        <main className='h-screen w-full'>
+        <main className='relative h-screen w-full'>
+            <div className='absolute top-0 right-0 left-0 h-10 flex gap-4 items-center justify-end pr-7'>
+                <Link href="/market" className='text-gray-500 hover:text-gray-300 cursor-default'>market</Link>
+                <p onClick={() => { authpage === "signup" ? setAuthpage("signin") : setAuthpage("signup") }}
+                    className={`text-gray-500 hover:text-gray-300 cursor-default`}>{authpage === "signup" ? "sign in" : "sign up"}</p>
+
+            </div>
             <div className='h-screen w-full flex flex-col justify-center items-center'>
                 {
                     mutation.isPending && (
@@ -84,7 +94,7 @@ const page = () => {
                                 type="email"
                                 value={email}
                                 onChange={handleChangeEmail}
-                                placeholder='email' className='focus:outline-none w-60 bg-zinc-900/70 px-3 py-1' />
+                                placeholder={`email -${authpage === "signin" ? " for signin" : " for new account"}`} className=' focus:outline-none w-60 bg-zinc-900/70 px-3 py-1' />
                             <p onClick={handleSubmitEmail} className='text-gray-500 hover:text-gray-300 cursor-default text-right'>enter</p>
                         </form>
                     )
