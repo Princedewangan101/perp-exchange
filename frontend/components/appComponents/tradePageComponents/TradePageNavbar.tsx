@@ -6,7 +6,7 @@ import Image from 'next/image'
 import React, { useEffect } from 'react'
 
 const TradePageNavbar = () => {
-    console.log("> userId (TradePageNavbar.tsx)", useAppStore.getState().userId);
+    // console.log("> userId (TradePageNavbar.tsx)", useAppStore.getState().userId);
 
     const [moreOpen, setMoreOpen] = React.useState(false);
     const moreRef = React.useRef<HTMLDivElement>(null);
