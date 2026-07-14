@@ -42,6 +42,7 @@ export const useAppStore = create<AppStoreStateType>()(
             name: "perp-exchange",
             partialize: (state) => ({
                 userId: state.userId,
+                userEmail: state.userEmail,
                 expire: state.expire,
             }),
             merge: (persisted, current) => {
