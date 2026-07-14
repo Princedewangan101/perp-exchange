@@ -16,14 +16,14 @@ pub struct UserCreationResponse {
 pub struct Order {
     pub order_id: i32,
     pub symbol: String,
-    pub quantity: u32,
+    pub quantity: f64,
     pub side: u32,
     pub order_type: String,
     pub status: String,
-    pub tp: Option<i64>,
-    pub sl: Option<i64>,
-    pub open: String,
-    pub close: Option<String>,
+    pub tp: Option<f64>,
+    pub sl: Option<f64>,
+    pub open: f64,
+    pub close: Option<f64>,
     pub close_type: Option<String>,
 }
 
@@ -217,73 +217,69 @@ pub async fn limit_order(
     postgres_client: &Client,
     user_id: &str,
     symbol: &str,
-    quantity: &u32,
+    quantity: &f64,
     side: &u32,
     order_type: &str,
     status: String,
     leverage: &u32,
-    tp: &u64,
-    sl: &u64,
-    open: &u64,
+    tp: &f64,
+    sl: &f64,
+    open: &f64,
 ) -> bool {
-    let pg_quantity = *quantity as i32;
     let pg_side = *side as i16;
-    let pg_tp = *tp as i64;
-    let pg_sl = *sl as i64;
-    let pg_open = *open as i64;
 
     let withdraw_query_result;
 
-    if pg_tp == 0 && pg_sl == 0 {
+    if *tp == 0.0 && *sl == 0.0 {
         withdraw_query_result = postgres_client
             .query_one(
                 "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, open) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                 &[
                     &user_id,
                     &symbol,
-                    &pg_quantity,
+                    &quantity,
                     &pg_side,
                     &order_type,
                     &status,
                     &leverage,
-                    &pg_open,
+                    &open,
                 ],
             )
             .await;
-    } else if pg_tp == 0 {
+    } else if *tp == 0.0 {
         withdraw_query_result = postgres_client
             .query_one(
                 "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, sl, open) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
                 &[
                     &user_id,
                     &symbol,
-                    &pg_quantity,
+                    &quantity,
                     &pg_side,
                     &order_type,
                     &status,
                     &leverage,
-                    &pg_sl,
-                    &pg_open,
+                    &sl,
+                    &open,
                 ],
             )
             .await;
-    } else if pg_sl == 0 {
+    } else if *sl == 0.0 {
         withdraw_query_result = postgres_client
             .query_one(
                 "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, tp, open) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
                 &[
                     &user_id,
                     &symbol,
-                    &pg_quantity,
+                    &quantity,
                     &pg_side,
                     &order_type,
                     &status,
                     &leverage,
-                    &pg_tp,
-                    &pg_open,
+                    &tp,
+                    &open,
                 ],
             )
             .await;
@@ -291,18 +287,18 @@ pub async fn limit_order(
         withdraw_query_result = postgres_client
             .query_one(
                 "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, tp, sl, open) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                 &[
                     &user_id,
                     &symbol,
-                    &pg_quantity,
+                    &quantity,
                     &pg_side,
                     &order_type,
                     &status,
                     &leverage,
-                    &pg_tp,
-                    &pg_sl,
-                    &pg_open,
+                    &tp,
+                    &sl,
+                    &open,
                 ],
             )
             .await;
@@ -317,17 +313,14 @@ pub async fn limit_order(
     }
 }
 
-pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &u64, sl: &u64) -> bool {
-    let pg_tp = *tp as i64;
-    let pg_sl = *sl as i64;
-
+pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &f64, sl: &f64) -> bool {
     let modify_query_response;
 
-    if pg_tp == 0 {
+    if *tp == 0.0 {
         modify_query_response = postgres_client
             .query_one(
                 "UPDATE users SET sl = $1 WHERE userId = $2",
-                &[&pg_sl, &user_id],
+                &[&sl, &user_id],
             )
             .await;
         match modify_query_response {
@@ -339,11 +332,11 @@ pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &u64, sl:
                 return false;
             }
         }
-    } else if pg_sl == 0 {
+    } else if *sl == 0.0 {
         modify_query_response = postgres_client
             .query_one(
                 "UPDATE users SET tp = $1 WHERE userId = $2",
-                &[&pg_tp, &user_id],
+                &[&tp, &user_id],
             )
             .await;
         match modify_query_response {
@@ -359,7 +352,7 @@ pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &u64, sl:
         modify_query_response = postgres_client
             .query_one(
                 "UPDATE users SET tp = $1 AND sl = $2 WHERE userId = $3",
-                &[&pg_tp, &pg_sl, &user_id],
+                &[&tp, &sl, &user_id],
             )
             .await;
         match modify_query_response {
@@ -378,15 +371,13 @@ pub async fn close_order(
     postgres_client: &Client,
     user_id: &str,
     order_id: &str,
-    close_price: &u64,
+    close_price: &f64,
     close_type: &str,
 ) -> bool {
-    let pg_close_price = *close_price as i64;
-
     let close_query_result = postgres_client
         .query_one(
-            "UPDATE orders SET close = &1 AND closeType = $2 WHERE userId =$3 AND orderId = $4",
-            &[&pg_close_price, &close_type, &user_id, &order_id],
+            "UPDATE orders SET close = $1, closeType = $2 WHERE userId = $3 AND orderId = $4",
+            &[&close_price, &close_type, &user_id, &order_id],
         )
         .await;
 
@@ -405,10 +396,8 @@ pub async fn update_balance(
     postgres_client: &Client,
     order_id: &str,
     user_id: &str,
-    close_price: &u64,
+    close_price: &f64,
 ) -> bool {
-    let pg_close_price = *close_price as i64;
-
     let order_result = postgres_client
         .query_opt(
             "SELECT open, side, leverage  FROM orders WHERE orderId = $1 AND userId = $2",
@@ -418,38 +407,40 @@ pub async fn update_balance(
 
     match order_result {
         Ok(Some(row)) => {
-            let open_price_found: i64 = row.get(0);
+            let open_price_found: f64 = row.get(0);
             let side_found: u32 = row.get(1);
             let leverage_found: u32 = row.get(3);
 
             let is_profit: bool;
-            let sum: i64;
+            let sum: f64;
 
             if side_found == 0 {
                 // sell side
-                let diff = open_price_found - pg_close_price;
-                if diff > 0 {
+                let diff = open_price_found - *close_price;
+                if diff > 0.0 {
                     is_profit = true
                 } else {
                     is_profit = false
                 }
-                sum = (diff.abs()) * leverage_found as i64
+                sum = diff.abs() * leverage_found as f64
             } else {
                 // buy side
-                let diff = pg_close_price - open_price_found;
-                if diff > 0 {
+                let diff = *close_price - open_price_found;
+                if diff > 0.0 {
                     is_profit = true
                 } else {
                     is_profit = false
                 }
-                sum = (diff.abs()) * leverage_found as i64
+                sum = diff.abs() * leverage_found as f64
             }
+
+            let sum_int = sum as i64;
 
             if is_profit {
                 let balance_update_query_response = postgres_client
                     .query_one(
                         "UPDATE users SET balance = balance + $1 WHERE userId = $2",
-                        &[&sum, &user_id],
+                        &[&sum_int, &user_id],
                     )
                     .await;
                 match balance_update_query_response {
@@ -465,7 +456,7 @@ pub async fn update_balance(
                 let balance_update_query_response = postgres_client
                 .query_one(
                     "UPDATE users SET balance = balance - $1 WHERE userId = $2 AND balance >= $3",
-                    &[&sum, &user_id, &sum],
+                    &[&sum_int, &user_id, &sum_int],
                 )
                 .await;
                 match balance_update_query_response {

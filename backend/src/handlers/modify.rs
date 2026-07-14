@@ -8,8 +8,8 @@ use crate::query::query::modify_order;
 
 #[derive(Deserialize)]
 pub struct MarketRequest {
-    pub tp: u64,
-    pub sl: u64,
+    pub tp: f64,
+    pub sl: f64,
 }
 
 #[derive(Serialize)]

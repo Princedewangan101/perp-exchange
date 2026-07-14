@@ -2,7 +2,8 @@ use axum::{Router, middleware, routing::post};
 use redis::aio::ConnectionManager;
 use std::sync::Arc;
 use tokio_postgres::Client;
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::{Any, CorsLayer};
+use axum::http::{HeaderValue, Method};
 
 mod config;
 mod handlers;
@@ -11,18 +12,18 @@ mod proto;
 mod query;
 
 use config::db::postgres::connect_postgres;
-use config::redis::connect_redis;
 use config::nats::connect_nats;
-use handlers::deposit::deposit;
-use handlers::withdraw::withdraw;
-use handlers::market::market;
-use handlers::limit::limit;
-use handlers::modify::modify;
+use config::redis::connect_redis;
 use handlers::close::close;
+use handlers::deposit::deposit;
+use handlers::limit::limit;
+use handlers::market::market;
+use handlers::modify::modify;
 use handlers::orders::fetch_orders;
-use handlers::transactions::fetch_transactions;
 use handlers::signin::signin;
 use handlers::signup::signup;
+use handlers::transactions::fetch_transactions;
+use handlers::withdraw::withdraw;
 use middlewares::auth::auth;
 
 pub type DbState = Arc<Client>;
@@ -45,7 +46,7 @@ async fn main() {
     let state = AppState {
         db: Arc::new(pg_client),
         redis: Arc::new(redis_cm),
-        nats: nats_cm
+        nats: nats_cm,
     };
 
     let protected = Router::new()
@@ -61,9 +62,10 @@ async fn main() {
         .with_state(state.clone());
 
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_headers([axum::http::header::CONTENT_TYPE])
+        .allow_credentials(true);
 
     let app: Router = Router::new()
         .route("/api/signup", post(signup))

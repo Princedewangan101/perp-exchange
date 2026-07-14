@@ -8,15 +8,15 @@ use crate::proto;
 #[derive(Deserialize)]
 pub struct OrderEvent {
     pub symbol: String,
-    pub quantity: u8,
+    pub quantity: f64,
     pub side: u8,
     pub order_type: String,
 }
 
 #[derive(Deserialize)]
 pub struct OrderEdge {
-    pub tp: i32,
-    pub sl: i32,
+    pub tp: f64,
+    pub sl: f64,
 }
 
 #[derive(Deserialize)]
@@ -40,11 +40,11 @@ pub async fn market(
     Json(req): Json<MarketRequest>,
 ) -> impl IntoResponse {
     if req.order.symbol.is_empty()
-        || req.order.quantity == 0
+        || req.order.quantity <= 0.0
         || req.order.side > 1
         || req.order.order_type.is_empty()
-        || req.edge.tp.is_negative()
-        || req.edge.sl.is_negative()
+        || req.edge.tp < 0.0
+        || req.edge.sl < 0.0
     {
         return (
             StatusCode::BAD_REQUEST,
@@ -58,7 +58,7 @@ pub async fn market(
     let proto_req = proto::OrderRequest {
         user_id: user.0,
         symbol: req.order.symbol,
-        quantity: req.order.quantity as u32,
+        quantity: req.order.quantity,
         side: req.order.side as u32,
         order_type: req.order.order_type,
     };
