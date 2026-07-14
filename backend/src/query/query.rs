@@ -1,5 +1,6 @@
-use std::path::absolute;
+use std::result::Result::Ok;
 
+use serde::Serialize;
 use tokio_postgres::Client;
 
 pub struct UserStatusResponse {
@@ -9,6 +10,28 @@ pub struct UserStatusResponse {
 pub struct UserCreationResponse {
     pub success: bool,
     pub id: String,
+}
+
+#[derive(Serialize)]
+pub struct Order {
+    pub order_id: i32,
+    pub symbol: String,
+    pub quantity: u32,
+    pub side: u32,
+    pub order_type: String,
+    pub status: String,
+    pub tp: Option<i64>,
+    pub sl: Option<i64>,
+    pub open: String,
+    pub close: Option<String>,
+    pub close_type: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct FetchOrdersResponse {
+    pub success: bool,
+    pub message: String,
+    pub orders: Option<Vec<Order>>,
 }
 
 #[derive(Debug)]
@@ -395,7 +418,7 @@ pub async fn update_balance(
                 } else {
                     is_profit = false
                 }
-                sum =  (diff.abs()) * leverage_found as i64 
+                sum = (diff.abs()) * leverage_found as i64
             } else {
                 // buy side
                 let diff = pg_close_price - open_price_found;
@@ -404,16 +427,16 @@ pub async fn update_balance(
                 } else {
                     is_profit = false
                 }
-                sum =  (diff.abs()) * leverage_found as i64 
+                sum = (diff.abs()) * leverage_found as i64
             }
 
             if is_profit {
                 let balance_update_query_response = postgres_client
-                .query_one(
-                    "UPDATE users SET balance = balance + $1 WHERE userId = $2",
-                    &[&sum, &user_id],
-                )
-                .await;
+                    .query_one(
+                        "UPDATE users SET balance = balance + $1 WHERE userId = $2",
+                        &[&sum, &user_id],
+                    )
+                    .await;
                 match balance_update_query_response {
                     Ok(_) => {
                         return true;
@@ -449,3 +472,43 @@ pub async fn update_balance(
     }
 }
 
+pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> FetchOrdersResponse {
+    let result = postgres_client.query(
+        "SELECT orderId, symbol, quantity, side, type, status, tp, sl, open, close, closeType FROM orders WHERE userId = $1",
+        &[&user_id],
+    ).await;
+
+    let rows = match result {
+        Ok(v) => v,
+        Err(err) => {
+            return FetchOrdersResponse {
+                success: false,
+                message: format!("Database error: {}", err),
+                orders: None,
+            };
+        }
+    };
+
+    let orders_list = rows
+        .iter()
+        .map(|row| Order {
+            order_id: row.get(0),
+            symbol: row.get(1),
+            quantity: row.get(2),
+            side: row.get(3),
+            order_type: row.get(4),
+            status: row.get(5),
+            tp: row.get(6),
+            sl: row.get(7),
+            open: row.get(8),
+            close: row.get(9),
+            close_type: row.get(10),
+        })
+        .collect();
+
+    return FetchOrdersResponse {
+        success: true,
+        message: "Orders fetched successfully".to_string(),
+        orders: Some(orders_list),
+    }
+}

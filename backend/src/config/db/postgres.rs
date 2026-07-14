@@ -25,8 +25,8 @@ pub async fn connect_postgres() -> Result<Client, Error> {
     });
 
     client
-    .batch_execute(
-        "CREATE TABLE IF NOT EXISTS users (
+        .batch_execute(
+            "CREATE TABLE IF NOT EXISTS users (
             userId SERIAL PRIMARY KEY,
             email VARCHAR(255) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
@@ -73,8 +73,8 @@ pub async fn connect_postgres() -> Result<Client, Error> {
         CREATE INDEX IF NOT EXISTS idx_transactions_user_id 
         ON transactions(userId);
         ",
-    )
-    .await?;
+        )
+        .await?;
 
     Ok(client)
 }
