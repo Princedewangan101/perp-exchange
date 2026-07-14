@@ -20,6 +20,7 @@ pub struct SigninRequest {
 pub struct SigninResponse {
     pub success: bool,
     pub message: String,
+    pub user_id: Option<String>,
 }
 
 pub async fn signin(
@@ -32,8 +33,9 @@ pub async fn signin(
         let err_body = SigninResponse {
             success: false,
             message: "missing required field".to_string(),
+            user_id: None,
         };
-        return (StatusCode::BAD_REQUEST, headers, Json(err_body)); // why we wrap the err_body in Json() ???
+        return (StatusCode::BAD_REQUEST, headers, Json(err_body));
     }
 
     let response_body;
@@ -44,13 +46,15 @@ pub async fn signin(
         response_body = SigninResponse {
             success: false,
             message: "user not exist".to_string(),
+            user_id: None,
         };
         return (StatusCode::NOT_FOUND, headers, Json(response_body));
     }
 
+    let user_id = response.user_id.clone();
     let my_claims = Claims {
-        user_id: response.user_id.expect("user_id not found"), // why we use expect rather than .deref().unwrap_or() ???
-        exp: (chrono::Utc::now() + chrono::Duration::minutes(1)).timestamp() as usize,
+        user_id: response.user_id.expect("user_id not found"),
+        exp: (chrono::Utc::now() + chrono::Duration::minutes(60*24)).timestamp() as usize,
     };
 
     let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret_key".to_string());
@@ -68,6 +72,7 @@ pub async fn signin(
             let err_body = SigninResponse {
                 success: false,
                 message: "failed to generate session token".to_string(),
+                user_id: None,
             };
             return (StatusCode::INTERNAL_SERVER_ERROR, headers, Json(err_body));
         }
@@ -85,6 +90,7 @@ pub async fn signin(
     response_body = SigninResponse {
         success: true,
         message: "signin successful".to_string(),
+        user_id,
     };
     return (StatusCode::ACCEPTED, headers, Json(response_body));
 }

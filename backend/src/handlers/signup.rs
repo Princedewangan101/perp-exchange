@@ -85,7 +85,7 @@ pub async fn signup(
 
         let my_claims = Claims {
             user_id: create_user_response.id.clone(),
-            exp: (chrono::Utc::now() + chrono::Duration::minutes(1)).timestamp() as usize,
+            exp: (chrono::Utc::now() + chrono::Duration::minutes(60*24)).timestamp() as usize,
         };
         println!("\n> my_claims = {:?}", my_claims);
         let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret_key".to_string());
