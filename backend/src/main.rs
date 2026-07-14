@@ -20,6 +20,7 @@ use handlers::limit::limit;
 use handlers::modify::modify;
 use handlers::close::close;
 use handlers::orders::fetch_orders;
+use handlers::transactions::fetch_transactions;
 use handlers::signin::signin;
 use handlers::signup::signup;
 use middlewares::auth::auth;
@@ -55,6 +56,7 @@ async fn main() {
         .route("/api/modify", post(modify))
         .route("/api/close", post(close))
         .route("/api/orders", post(fetch_orders))
+        .route("/api/transactions", post(fetch_transactions))
         .layer(middleware::from_fn(auth))
         .with_state(state.clone());
 

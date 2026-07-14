@@ -34,6 +34,21 @@ pub struct FetchOrdersResponse {
     pub orders: Option<Vec<Order>>,
 }
 
+#[derive(Serialize)]
+pub struct Transaction {
+    pub transaction_id: String,
+    pub balance: i64,
+    pub transaction_type: String,
+    pub created_at: i64,
+}
+
+#[derive(Serialize)]
+pub struct FetchTransactionsResponse {
+    pub success: bool,
+    pub message: String,
+    pub transactions: Option<Vec<Transaction>>,
+}
+
 #[derive(Debug)]
 pub struct User {
     pub user_id: Option<String>,
@@ -371,7 +386,7 @@ pub async fn close_order(
     let close_query_result = postgres_client
         .query_one(
             "UPDATE orders SET close = &1 AND closeType = $2 WHERE userId =$3 AND orderId = $4",
-            &[&pg_close_price, &close_type, &user_id],
+            &[&pg_close_price, &close_type, &user_id, &order_id],
         )
         .await;
 
@@ -510,5 +525,44 @@ pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> Fe
         success: true,
         message: "Orders fetched successfully".to_string(),
         orders: Some(orders_list),
-    }
+    };
+}
+
+pub async fn fetch_transactions_from_db(
+    postgres_client: &Client,
+    user_id: &str,
+) -> FetchTransactionsResponse {
+    let result = postgres_client
+        .query(
+            "SELECT transactionId, balance, type, created_at FROM orders WHERE userId = $1",
+            &[&user_id],
+        )
+        .await;
+
+    let rows = match result {
+        Ok(v) => v,
+        Err(err) => {
+            return FetchTransactionsResponse {
+                success: false,
+                message: format!("Database error: {}", err),
+                transactions: None,
+            };
+        }
+    };
+
+    let transactions_list = rows
+        .iter()
+        .map(|row| Transaction {
+            transaction_id: row.get(0),
+            balance: row.get(1),
+            transaction_type: row.get(2),
+            created_at: row.get(3),
+        })
+        .collect();
+
+    return FetchTransactionsResponse {
+        success: true,
+        message: "Orders fetched successfully".to_string(),
+        transactions: Some(transactions_list),
+    };
 }
