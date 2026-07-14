@@ -20,26 +20,26 @@ const BalanceBox = () => {
 
 
 
-  setInterval(() => {
+  // setInterval(() => {
 
-    let randomPrice = getRandomPrice();
+  //   let randomPrice = getRandomPrice();
 
-    diff = randomPrice - price
+  //   diff = randomPrice - price
 
-    if (diff > 0) {
-      totalBalance = Number(totalBalance) + diff
-    } else {
-      totalBalance = Number(totalBalance) - diff
-    }
-    if (randomPrice > 65500) {
-      setIsProfit(true)
-    }else{
-      setIsProfit(false)
-    }
+  //   if (diff > 0) {
+  //     totalBalance = Number(totalBalance) + diff
+  //   } else {
+  //     totalBalance = Number(totalBalance) - diff
+  //   }
+  //   if (randomPrice > 65500) {
+  //     setIsProfit(true)
+  //   }else{
+  //     setIsProfit(false)
+  //   }
 
 
-    useAppStore.getState().setBalance(Number(totalBalance.toFixed(2)))
-  }, 3000)
+  //   useAppStore.getState().setBalance(Number(totalBalance.toFixed(2)))
+  // }, 3000)
 
 
   return (
