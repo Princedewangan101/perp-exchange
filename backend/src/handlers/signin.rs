@@ -21,6 +21,7 @@ pub struct SigninResponse {
     pub success: bool,
     pub message: String,
     pub user_id: Option<String>,
+    pub token: Option<String>,
 }
 
 pub async fn signin(
@@ -34,6 +35,7 @@ pub async fn signin(
             success: false,
             message: "missing required field".to_string(),
             user_id: None,
+            token: None,
         };
         return (StatusCode::BAD_REQUEST, headers, Json(err_body));
     }
@@ -47,6 +49,7 @@ pub async fn signin(
             success: false,
             message: "user not exist".to_string(),
             user_id: None,
+            token: None,
         };
         return (StatusCode::NOT_FOUND, headers, Json(response_body));
     }
@@ -73,15 +76,16 @@ pub async fn signin(
                 success: false,
                 message: "failed to generate session token".to_string(),
                 user_id: None,
+                token: None,
             };
             return (StatusCode::INTERNAL_SERVER_ERROR, headers, Json(err_body));
         }
     };
 
-    let cookie = Cookie::build(("token", token))
-        .http_only(true)
-        .secure(true)
-        .same_site(SameSite::Strict)
+    let cookie = Cookie::build(("token", token.clone()))
+        .http_only(false)
+        .secure(false)
+        .same_site(SameSite::Lax)
         .path("/")
         .to_string();
 
@@ -90,7 +94,8 @@ pub async fn signin(
     response_body = SigninResponse {
         success: true,
         message: "signin successful".to_string(),
-        user_id,
+        user_id: user_id.clone(),
+        token: Some(token.clone()),
     };
-    return (StatusCode::ACCEPTED, headers, Json(response_body));
+    return (StatusCode::OK, headers, Json(response_body));
 }

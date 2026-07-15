@@ -25,6 +25,7 @@ pub struct SignupResponse {
     pub success: bool,
     pub message: String,
     pub user_id: Option<String>,
+    pub token: Option<String>,
 }
 
 #[derive(Serialize, Debug)]
@@ -44,6 +45,7 @@ pub async fn signup(
             success: false,
             message: "missing required data".to_string(),
             user_id: None,
+            token: None,
         };
         return (StatusCode::BAD_REQUEST, headers, Json(err_body));
     }
@@ -62,6 +64,7 @@ pub async fn signup(
                     message: "internal server error during password security encryption"
                         .to_string(),
                     user_id: None,
+                    token: None,
                 };
                 return (StatusCode::INTERNAL_SERVER_ERROR, headers, Json(err_body));
             }
@@ -75,6 +78,7 @@ pub async fn signup(
                 success: create_user_response.success,
                 message: format!("failed to register user"),
                 user_id: None,
+                token: None,
             };
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -102,16 +106,17 @@ pub async fn signup(
                     success: false,
                     message: "failed to generate session token".to_string(),
                     user_id: None,
+                    token: None,
                 };
                 return (StatusCode::INTERNAL_SERVER_ERROR, headers, Json(err_body));
             }
         };
 
         // set jwt in cookie
-        let cookie = Cookie::build(("token", token))
-            .http_only(true)
-            .secure(true)
-            .same_site(SameSite::Strict)
+        let cookie = Cookie::build(("token", token.clone()))
+            .http_only(false)
+            .secure(false)
+            .same_site(SameSite::Lax)
             .path("/")
             .to_string();
 
@@ -120,11 +125,9 @@ pub async fn signup(
         // send response
         response_body = SignupResponse {
             success: true,
-            message: format!(
-                // ??? difference between format! and println!
-                "User registered successfully!",
-            ),
-            user_id: Some(create_user_response.id),
+            message: format!("User registered successfully!"),
+            user_id: Some(create_user_response.id.clone()),
+            token: Some(token),
         };
         return (StatusCode::CREATED, headers, Json(response_body));
     } else {
@@ -132,6 +135,7 @@ pub async fn signup(
             success: true,
             message: format!("User {}: already exist!", req.email),
             user_id: None,
+            token: None,
         };
         return (StatusCode::CREATED, headers, Json(response_body));
     }
