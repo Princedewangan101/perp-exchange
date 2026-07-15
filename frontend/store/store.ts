@@ -11,6 +11,8 @@ interface AppStoreStateType {
     isDrawerOpen: boolean,
     dropupOpen: boolean,
     expire: number,
+    lastPage: string,
+    setLastPage: (lastPage: string) => void
     setUserId: (userIdFromServer: string) => void
     setUserName: (userNameFromServer: string) => void
     setUserEmail: (email: string) => void
@@ -28,10 +30,12 @@ export const useAppStore = create<AppStoreStateType>()(
             userEmail:"",
             totalBalance: 0,
             symbol: "",
+            lastPage: "/market",
             isDrawerOpen: true,
             dropupOpen: false,
             expire: 0,
-            setUserId: (userIdFromServer: string) => set({ userId: userIdFromServer, expire: Date.now() + (1000 * 60) }),
+            setLastPage: (lp: string) => set({lastPage:lp}),
+            setUserId: (userIdFromServer: string) => set({ userId: userIdFromServer, expire: Date.now() + (1000 * 60 * 60 * 24) }), // 24 hours
             setUserName: (userNameFromServer: string) => set({ userName: userNameFromServer }),
             setUserEmail: (email: string) => set({ userEmail: email }),
             setBalance: (balance: number) => set({ totalBalance: balance }),

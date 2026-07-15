@@ -54,6 +54,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
       if (data.success) {
         toast.success(data.message || 'Order executed successfully.');
       } else {
+        console.log(`\n> order data: ${data}`);
         toast.error(data.message || 'Order failed.');
       }
     },
@@ -153,7 +154,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
             <label htmlFor="tp" className="block mb-1 font-medium text-slate-300">Take Profit</label>
             <input type="number" id="tp" name="tp" placeholder="70000"
               value={tp}
-              onChange={(e) => setTp(e.target.value)}
+              onChange={(e) => setTp(Number(e.target.value))}
               className="w-full p-2 bg-zinc-900/70 rounded-md focus:outline-none
             [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
             " />
@@ -164,7 +165,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
             <label htmlFor="sl" className="block mb-1 font-medium text-slate-300">Stop Loss</label>
             <input type="number" id="sl" name="sl" placeholder="65000"
               value={sl}
-              onChange={(e) => setSl(e.target.value)}
+              onChange={(e) => setSl(Number(e.target.value))}
               className="w-full p-2 bg-zinc-900/70 rounded-md focus:outline-none
             [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
             " />

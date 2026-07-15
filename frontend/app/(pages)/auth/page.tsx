@@ -25,12 +25,16 @@ const page = () => {
         },
         onSuccess: (data) => {
             useAppStore.getState().setUserId(data.user_id)
+            if (data.token) {
+                localStorage.setItem('auth_token', data.token)
+            }
 
             console.log("> userId: ", useAppStore.getState().userId);
             console.log("> email: ", useAppStore.getState().userEmail);
+            console.log("> token: ", data.token);
 
-            toast.success('Registered Successfully!')
-            router.push("/market")
+            toast.success(`${authpage === "signin" ? "login successfully" : "registered successfully"}`)
+            router.push(useAppStore.getState().lastPage)
         },
         onError: (error: any) => {
             console.log("> error: ", error.message);
@@ -39,7 +43,6 @@ const page = () => {
             } else {
                 toast.error('error while authenthication!')
             }
-            useAppStore.getState().setUserEmail("")
         }
     })
     function handleAuth() {
@@ -67,7 +70,7 @@ const page = () => {
             <div className='absolute top-0 right-0 left-0 h-10 flex gap-4 items-center justify-end pr-7'>
                 <Link href="/market" className='text-gray-500 hover:text-gray-300 cursor-default'>market</Link>
                 <p onClick={() => { authpage === "signup" ? setAuthpage("signin") : setAuthpage("signup") }}
-                    className={`text-gray-500 hover:text-gray-300 cursor-default`}>{authpage === "signup" ? "sign in" : "sign up"}</p>
+                    className={`text-gray-500 hover:text-gray-300 cursor-default`}>{authpage === "signup" ? "log in" : "sign up"}</p>
 
             </div>
             <div className='h-screen w-full flex flex-col justify-center items-center'>
@@ -94,7 +97,7 @@ const page = () => {
                                 type="email"
                                 value={email}
                                 onChange={handleChangeEmail}
-                                placeholder={`email -${authpage === "signin" ? " for signin" : " for new account"}`} className=' focus:outline-none w-60 bg-zinc-900/70 px-3 py-1' />
+                                placeholder={`email -${authpage === "signin" ? " for login" : " for new account"}`} className=' focus:outline-none w-60 bg-zinc-900/70 px-3 py-1' />
                             <p onClick={handleSubmitEmail} className='text-gray-500 hover:text-gray-300 cursor-default text-right'>enter</p>
                         </form>
                     )

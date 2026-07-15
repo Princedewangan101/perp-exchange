@@ -4,6 +4,7 @@ import { useAppStore } from '@/store/store';
 import { maskEmail } from '@/lib/utils';
 import Image from 'next/image'
 import React, { useEffect } from 'react'
+import Link from 'next/link';
 
 const TradePageNavbar = () => {
     // console.log("> userId (TradePageNavbar.tsx)", useAppStore.getState().userId);
@@ -118,12 +119,12 @@ const TradePageNavbar = () => {
                 </button>
                 {!hydrated || userId === "" ? (
                     <>
-                        <button className='flex items-center gap-1 px-2 py-1 rounded font-semibold bg-zinc-800 text-white'>
+                        <Link href="/auth"><button className='flex items-center gap-1 px-2 py-1 rounded font-semibold bg-zinc-800 text-white'>
                             Login
-                        </button>
-                        <button className='flex items-center gap-1 px-2 py-1 rounded font-semibold bg-zinc-900 text-white'>
+                        </button></Link>
+                        <Link href="/auth"><button className='flex items-center gap-1 px-2 py-1 rounded font-semibold bg-zinc-900 text-white'>
                             Signup
-                        </button>
+                        </button></Link>
                     </>
                 )
                     :
