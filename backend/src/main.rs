@@ -1,3 +1,4 @@
+use axum::http::header::SET_COOKIE;
 use axum::{Router, middleware, routing::post};
 use redis::aio::ConnectionManager;
 use std::sync::Arc;
@@ -24,7 +25,7 @@ use handlers::signin::signin;
 use handlers::signup::signup;
 use handlers::transactions::fetch_transactions;
 use handlers::withdraw::withdraw;
-use middlewares::auth::auth;
+use middlewares::alt_auth_mw::alt_auth;
 
 pub type DbState = Arc<Client>;
 pub type RedisState = Arc<ConnectionManager>;
@@ -58,13 +59,14 @@ async fn main() {
         .route("/api/close", post(close))
         .route("/api/orders", post(fetch_orders))
         .route("/api/transactions", post(fetch_transactions))
-        .layer(middleware::from_fn(auth))
+        .layer(middleware::from_fn(alt_auth))
         .with_state(state.clone());
 
     let cors = CorsLayer::new()
         .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-        .allow_headers([axum::http::header::CONTENT_TYPE])
+        .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::AUTHORIZATION])
+        .expose_headers([SET_COOKIE])
         .allow_credentials(true);
 
     let app: Router = Router::new()
