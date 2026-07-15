@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::proto;
 use crate::query::query::limit_order;
 
+
 #[derive(Deserialize)]
 pub struct OrderEvent {
     pub symbol: String,
@@ -35,6 +36,7 @@ pub struct MarketRequest {
 pub struct MarketResponse {
     pub success: bool,
     pub message: String,
+    pub order_id: Option<String>,
 }
 
 pub async fn limit(
@@ -54,6 +56,7 @@ pub async fn limit(
             Json(MarketResponse {
                 success: false,
                 message: "missing required field".to_string(),
+                order_id: None,
             }),
         );
     }
@@ -88,8 +91,16 @@ pub async fn limit(
     //     .expect("Failed to publish event");
 
     println!(
-        "\n> [LIMIT_ORDER] User: {}, Symbol: {}, Qty: {}, Side: {}, Type: {}, Status: pending, Leverage: {}, TP: {}, SL: {}, Price: {}",
-        user.0, req.order.symbol, req.order.quantity, req.order.side, req.order.order_type, req.order.leverage, req.edge.tp.unwrap_or(0.0), req.edge.sl.unwrap_or(0.0), req.order.price
+        "\n\n\n> [LIMIT_ORDER] User: {}, Symbol: {}, Qty: {}, Side: {}, Type: {}, Status: pending, Leverage: {}, TP: {}, SL: {}, Price: {}",
+        user.0,
+        req.order.symbol,
+        req.order.quantity,
+        req.order.side,
+        req.order.order_type,
+        req.order.leverage,
+        req.edge.tp.unwrap_or(0.0),
+        req.edge.sl.unwrap_or(0.0),
+        req.order.price
     );
 
     let response = limit_order(
@@ -107,21 +118,26 @@ pub async fn limit(
     )
     .await;
 
-    if !response {
-        return (
-            StatusCode::CONFLICT,
-            Json(MarketResponse {
-                success: false,
-                message: "failed to process order".to_string(),
-            }),
-        );
-    }
+    let order_id = match response {
+        Some(id) => id,
+        None => {
+            return (
+                StatusCode::CONFLICT,
+                Json(MarketResponse {
+                    success: false,
+                    message: "failed to process order".to_string(),
+                    order_id: None,
+                }),
+            );
+        }
+    };
 
     return (
         StatusCode::OK,
         Json(MarketResponse {
             success: true,
             message: "order in pending".to_string(),
+            order_id: Some(order_id),
         }),
     );
 }
