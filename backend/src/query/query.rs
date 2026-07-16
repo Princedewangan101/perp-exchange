@@ -1,5 +1,6 @@
 use std::result::Result::Ok;
 
+use rust_decimal::Decimal;
 use serde::Serialize;
 use tokio_postgres::Client;
 
@@ -84,7 +85,7 @@ pub async fn is_user_exist(postgres_client: &Client, email: &str) -> UserStatusR
             email: None,
         },
         Err(err) => {
-            eprintln!("\n[ERROR] isUserExist err: {}", err.to_string());
+            log_db_error("is_user_exist", &err);
             UserStatusResponse {
                 is_user_exist: false,
                 email: None,
@@ -115,7 +116,7 @@ pub async fn create_user(
             }
         }
         Err(err) => {
-            eprintln!("\n[ERROR] create_user : {}", err);
+            log_db_error("create_user", &err);
             UserCreationResponse {
                 success: false,
                 id: "".to_string(),
@@ -158,7 +159,7 @@ pub async fn find_user(postgres_client: &Client, email: &str) -> User {
             }
         }
         Err(err) => {
-            eprintln!("\n[ERROR] isUserExist err: {}", err.to_string());
+            log_db_error("find_user", &err);
             User {
                 user_id: None,
                 email: None,
@@ -169,9 +170,18 @@ pub async fn find_user(postgres_client: &Client, email: &str) -> User {
 }
 
 pub async fn deposit_balance(postgres_client: &Client, user_id: &str, amount: &str) -> Deposit {
+    let user_id: i32 = match user_id.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            return Deposit {
+                success: false,
+                balance: None,
+            };
+        }
+    };
     let post_query_result = postgres_client
         .query_one(
-            "UPDATE users SET balance = balance + $1 WHERE id = $2 RETURNING balance",
+            "UPDATE users SET balance = balance + $1 WHERE userId = $2 RETURNING balance",
             &[&amount, &user_id],
         )
         .await;
@@ -185,7 +195,7 @@ pub async fn deposit_balance(postgres_client: &Client, user_id: &str, amount: &s
             }
         }
         Err(err) => {
-            eprintln!("\n[ERROR] deposit_balance : {}", err);
+            log_db_error("deposit_balance", &err);
             Deposit {
                 success: false,
                 balance: None,
@@ -195,6 +205,10 @@ pub async fn deposit_balance(postgres_client: &Client, user_id: &str, amount: &s
 }
 
 pub async fn withdraw_balance(postgres_client: &Client, user_id: &str, amount: &str) -> bool {
+    let user_id: i32 = match user_id.parse() {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
     let withdraw_query_result = postgres_client
         .query_one(
             "UPDATE users SET balance = balance - $1 WHERE userId = $2 AND balance >= $3",
@@ -207,7 +221,7 @@ pub async fn withdraw_balance(postgres_client: &Client, user_id: &str, amount: &
             return true;
         }
         Err(err) => {
-            eprintln!("\n[ERROR] withdraw_balance : {}", err);
+            log_db_error("withdraw_balance", &err);
             return false;
         }
     }
@@ -225,95 +239,112 @@ pub async fn limit_order(
     tp: &f64,
     sl: &f64,
     open: &f64,
-) -> bool {
+) -> Option<String> {
     let pg_side = *side as i16;
+    let pg_leverage = *leverage as i16;
+    let user_id: i32 = user_id.parse().ok()?;
+    let pg_quantity = Decimal::from_f64_retain(*quantity).unwrap();
+    let pg_tp = Decimal::from_f64_retain(*tp).unwrap();
+    let pg_sl = Decimal::from_f64_retain(*sl).unwrap();
+    let pg_open = Decimal::from_f64_retain(*open).unwrap();
 
-    let withdraw_query_result;
+    let result;
 
     if *tp == 0.0 && *sl == 0.0 {
-        withdraw_query_result = postgres_client
+        result = postgres_client
             .query_one(
                 "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, open) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING orderId",
                 &[
                     &user_id,
                     &symbol,
-                    &quantity,
+                    &pg_quantity,
                     &pg_side,
                     &order_type,
                     &status,
-                    &leverage,
-                    &open,
+                    &pg_leverage,
+                    &pg_open,
                 ],
             )
             .await;
     } else if *tp == 0.0 {
-        withdraw_query_result = postgres_client
+        result = postgres_client
             .query_one(
                 "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, sl, open) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING orderId",
                 &[
                     &user_id,
                     &symbol,
-                    &quantity,
+                    &pg_quantity,
                     &pg_side,
                     &order_type,
                     &status,
-                    &leverage,
-                    &sl,
-                    &open,
+                    &pg_leverage,
+                    &pg_sl,
+                    &pg_open,
                 ],
             )
             .await;
     } else if *sl == 0.0 {
-        withdraw_query_result = postgres_client
+        result = postgres_client
             .query_one(
                 "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, tp, open) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING orderId",
                 &[
                     &user_id,
                     &symbol,
-                    &quantity,
+                    &pg_quantity,
                     &pg_side,
                     &order_type,
                     &status,
-                    &leverage,
-                    &tp,
-                    &open,
+                    &pg_leverage,
+                    &pg_tp,
+                    &pg_open,
                 ],
             )
             .await;
     } else {
-        withdraw_query_result = postgres_client
+        result = postgres_client
             .query_one(
                 "INSERT INTO orders (userId, symbol, quantity, side, type, status, leverage, tp, sl, open) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+             RETURNING orderId",
                 &[
                     &user_id,
                     &symbol,
-                    &quantity,
+                    &pg_quantity,
                     &pg_side,
                     &order_type,
                     &status,
-                    &leverage,
-                    &tp,
-                    &sl,
-                    &open,
+                    &pg_leverage,
+                    &pg_tp,
+                    &pg_sl,
+                    &pg_open,
                 ],
             )
             .await;
     }
 
-    match withdraw_query_result {
-        Ok(_) => true,
+    match result {
+        Ok(row) => {
+            let order_id: i32 = row.get("orderId");
+            Some(order_id.to_string())
+        }
         Err(err) => {
-            eprintln!("\n[ERROR] limit_order query failed: {}", err);
-            false
+            log_db_error("limit_order", &err);
+            return None;
         }
     }
 }
 
 pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &f64, sl: &f64) -> bool {
+    let user_id: i32 = match user_id.parse() {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
     let modify_query_response;
 
     if *tp == 0.0 {
@@ -328,7 +359,7 @@ pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &f64, sl:
                 return true;
             }
             Err(err) => {
-                eprintln!("\n[ERROR] modify_query : {}", err);
+                log_db_error("modify_order (tp=0)", &err);
                 return false;
             }
         }
@@ -344,7 +375,7 @@ pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &f64, sl:
                 return true;
             }
             Err(err) => {
-                eprintln!("\n[ERROR] modify_query : {}", err);
+                log_db_error("modify_order (sl=0)", &err);
                 return false;
             }
         }
@@ -360,7 +391,7 @@ pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &f64, sl:
                 return true;
             }
             Err(err) => {
-                eprintln!("\n[ERROR] modify_query : {}", err);
+                log_db_error("modify_order (both)", &err);
                 return false;
             }
         }
@@ -374,6 +405,14 @@ pub async fn close_order(
     close_price: &f64,
     close_type: &str,
 ) -> bool {
+    let user_id: i32 = match user_id.parse() {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
+    let order_id: i32 = match order_id.parse() {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
     let close_query_result = postgres_client
         .query_one(
             "UPDATE orders SET close = $1, closeType = $2 WHERE userId = $3 AND orderId = $4",
@@ -386,7 +425,7 @@ pub async fn close_order(
             return true;
         }
         Err(err) => {
-            eprintln!("\n[ERROR] close_order : {}", err);
+            log_db_error("close_order", &err);
             return false;
         }
     }
@@ -398,6 +437,14 @@ pub async fn update_balance(
     user_id: &str,
     close_price: &f64,
 ) -> bool {
+    let order_id: i32 = match order_id.parse() {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
+    let user_id: i32 = match user_id.parse() {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
     let order_result = postgres_client
         .query_opt(
             "SELECT open, side, leverage  FROM orders WHERE orderId = $1 AND userId = $2",
@@ -448,7 +495,7 @@ pub async fn update_balance(
                         return true;
                     }
                     Err(err) => {
-                        eprintln!("\n[ERROR] modify_query : {}", err);
+                        log_db_error("update_balance (profit)", &err);
                         return false;
                     }
                 }
@@ -464,7 +511,7 @@ pub async fn update_balance(
                         return true;
                     }
                     Err(err) => {
-                        eprintln!("\n[ERROR] modify_query : {}", err);
+                        log_db_error("update_balance (loss)", &err);
                         return false;
                     }
                 }
@@ -472,13 +519,23 @@ pub async fn update_balance(
         }
         Ok(None) => return false,
         Err(err) => {
-            eprintln!("\n[ERROR] isUserExist err: {}", err.to_string());
+            log_db_error("update_balance (fetch order)", &err);
             return false;
         }
     }
 }
 
 pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> FetchOrdersResponse {
+    let user_id: i32 = match user_id.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            return FetchOrdersResponse {
+                success: false,
+                message: "Invalid user ID".to_string(),
+                orders: None,
+            };
+        }
+    };
     let result = postgres_client.query(
         "SELECT orderId, symbol, quantity, side, type, status, tp, sl, open, close, closeType FROM orders WHERE userId = $1",
         &[&user_id],
@@ -487,6 +544,7 @@ pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> Fe
     let rows = match result {
         Ok(v) => v,
         Err(err) => {
+            log_db_error("fetch_orders_from_db", &err);
             return FetchOrdersResponse {
                 success: false,
                 message: format!("Database error: {}", err),
@@ -523,6 +581,16 @@ pub async fn fetch_transactions_from_db(
     postgres_client: &Client,
     user_id: &str,
 ) -> FetchTransactionsResponse {
+    let user_id: i32 = match user_id.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            return FetchTransactionsResponse {
+                success: false,
+                message: "Invalid user ID".to_string(),
+                transactions: None,
+            };
+        }
+    };
     let result = postgres_client
         .query(
             "SELECT transactionId, balance, type, created_at FROM orders WHERE userId = $1",
@@ -533,6 +601,7 @@ pub async fn fetch_transactions_from_db(
     let rows = match result {
         Ok(v) => v,
         Err(err) => {
+            log_db_error("fetch_transactions_from_db", &err);
             return FetchTransactionsResponse {
                 success: false,
                 message: format!("Database error: {}", err),
@@ -556,4 +625,34 @@ pub async fn fetch_transactions_from_db(
         message: "Orders fetched successfully".to_string(),
         transactions: Some(transactions_list),
     };
+}
+
+fn log_db_error(context: &str, err: &tokio_postgres::Error) {
+    eprintln!("\n[ERROR] {} failed!", context);
+
+    eprintln!("\n[INFO] Raw Debug Info: {:#?}", err);
+
+    if let Some(db_error) = err.as_db_error() {
+        eprintln!("\n--- Postgres Engine Error Details ---");
+        eprintln!("Code:       {}", db_error.code().code());
+        eprintln!("Severity:   {}", db_error.severity());
+        eprintln!("Message:    {}", db_error.message());
+
+        if let Some(detail) = db_error.detail() {
+            eprintln!("Detail:     {}", detail);
+        }
+        if let Some(hint) = db_error.hint() {
+            eprintln!("Hint:       {}", hint);
+        }
+        if let Some(table) = db_error.table() {
+            eprintln!("Table:      {}", table);
+        }
+        if let Some(constraint) = db_error.constraint() {
+            eprintln!("Constraint: {}", constraint);
+        }
+        if let Some(datatype) = db_error.datatype() {
+            eprintln!("Data Type:  {}", datatype);
+        }
+        eprintln!("-------------------------------------");
+    }
 }

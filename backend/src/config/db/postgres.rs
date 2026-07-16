@@ -28,51 +28,44 @@ pub async fn connect_postgres() -> Result<Client, Error> {
         .batch_execute(
             "CREATE TABLE IF NOT EXISTS users (
             userId SERIAL PRIMARY KEY,
-            email VARCHAR(255) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            balance NUMERIC(12, 0) NOT NULL DEFAULT 0.00,
+            email VARCHAR(100) NOT NULL UNIQUE,
+            password VARCHAR(100) NOT NULL,
+            balance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
-
-        DO $$ BEGIN
-            CREATE TYPE txType AS ENUM ('deposit', 'withdraw', 'profit', 'loss');
-            CREATE TYPE orderType AS ENUM ('spot', 'perpf');
-            CREATE TYPE orderCloseType AS ENUM ('tp', 'sl', 'manual', 'lowBalance');
-            CREATE TYPE orderStatus AS ENUM ('pending', 'running', 'completed');
-        EXCEPTION
-            WHEN duplicate_object THEN NULL;
-        END $$;
-
-        CREATE TABLE IF NOT EXISTS transactions (
-            transactionId SERIAL PRIMARY KEY,
-            userId INT NOT NULL REFERENCES users(userId) ON DELETE CASCADE,
-            balance NUMERIC(12, 0) NOT NULL DEFAULT 0.00,
-            type txType NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS orders (
             orderId SERIAL PRIMARY KEY,
             userId INT NOT NULL REFERENCES users(userId) ON DELETE CASCADE,
-            symbol TEXT NOT NULL,
-            quantity DOUBLE PRECISION NOT NULL,
+            symbol VARCHAR(10) NOT NULL,
+            quantity NUMERIC(4,2) NOT NULL,
             side SMALLINT NOT NULL CHECK (side IN (0, 1)),
-            type orderType NOT NULL DEFAULT 'spot',
-            status orderStatus NOT NULL,
-            leverage INT,
-            tp DOUBLE PRECISION,
-            sl DOUBLE PRECISION,
-            open DOUBLE PRECISION NOT NULL,
-            close DOUBLE PRECISION,
-            closeType orderCloseType ,
+            type VARCHAR(6) NOT NULL DEFAULT 'market',  
+            status VARCHAR(9) NOT NULL,
+            leverage SMALLINT,
+            tp NUMERIC(8,2),
+            sl NUMERIC(8,2),
+            open NUMERIC(8,2) NOT NULL,
+            close NUMERIC(8,2),
+            closeType VARCHAR(6),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS transactions (
+            transactionId SERIAL PRIMARY KEY,
+            userId INT NOT NULL REFERENCES users(userId) ON DELETE CASCADE,
+            orderId INT REFERENCES orders(orderId) ON DELETE CASCADE,
+            balance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+            type VARCHAR(8) NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+
         CREATE INDEX IF NOT EXISTS idx_transactions_user_id 
         ON transactions(userId);
-        ",
+",
         )
         .await?;
 

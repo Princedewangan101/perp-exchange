@@ -40,7 +40,7 @@ pub struct AppState {
 #[tokio::main]
 async fn main() {
     println!("\n>> run redis and nats");
-    let pg_client = connect_postgres().await.unwrap();
+    let pg_client = connect_postgres().await.expect("[CRITICAL]  Failed to connect to the PostgreSQL database server");
     let redis_cm = connect_redis().await.unwrap();
     let nats_cm = connect_nats().await.unwrap();
 
