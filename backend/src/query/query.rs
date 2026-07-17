@@ -26,6 +26,9 @@ pub struct Order {
     pub open: f64,
     pub close: Option<f64>,
     pub close_type: Option<String>,
+    pub pnl: Option<f64>,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -526,6 +529,7 @@ pub async fn update_balance(
 }
 
 pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> FetchOrdersResponse {
+        println!("\n\n> route: fetch_orders_from_db(), get triggererd.");
     let user_id: i32 = match user_id.parse() {
         Ok(id) => id,
         Err(_) => {
@@ -537,7 +541,7 @@ pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> Fe
         }
     };
     let result = postgres_client.query(
-        "SELECT orderId, symbol, quantity, side, type, status, tp, sl, open, close, closeType FROM orders WHERE userId = $1",
+        "SELECT orderId, symbol, quantity::double precision, side::int2, type, status, tp::double precision, sl::double precision, open::double precision, close::double precision, closeType, pnl::double precision, created_at::text, updated_at::text FROM orders WHERE userId = $1",
         &[&user_id],
     ).await;
 
@@ -559,7 +563,7 @@ pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> Fe
             order_id: row.get(0),
             symbol: row.get(1),
             quantity: row.get(2),
-            side: row.get(3),
+            side: row.get::<_, i16>(3) as u32,
             order_type: row.get(4),
             status: row.get(5),
             tp: row.get(6),
@@ -567,9 +571,13 @@ pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> Fe
             open: row.get(8),
             close: row.get(9),
             close_type: row.get(10),
+            pnl: row.get(11),
+            created_at: row.get(12),
+            updated_at: row.get(13),
         })
         .collect();
 
+        println!("\n\n> route: fetch_orders_from_db(), success,");
     return FetchOrdersResponse {
         success: true,
         message: "Orders fetched successfully".to_string(),

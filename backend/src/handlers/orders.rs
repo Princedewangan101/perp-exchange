@@ -9,11 +9,8 @@ pub async fn fetch_orders(
     let response = fetch_orders_from_db(&state.db, &user.0).await;
 
     if !response.success {
-        return (
-            StatusCode::CONFLICT,
-            Json(response),
-        );
+        return (StatusCode::CONFLICT, Json(response));
     }
-
+    println!("\n\n> route: fetch_orders(), succes.");
     (StatusCode::OK, Json(response))
 }
