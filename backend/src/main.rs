@@ -1,5 +1,5 @@
 use axum::http::header::SET_COOKIE;
-use axum::{Router, middleware, routing::post};
+use axum::{Router, middleware, routing::{get, post}};
 use redis::aio::ConnectionManager;
 use std::sync::Arc;
 use tokio_postgres::Client;
@@ -57,7 +57,7 @@ async fn main() {
         .route("/api/limit", post(limit))
         .route("/api/modify", post(modify))
         .route("/api/close", post(close))
-        .route("/api/orders", post(fetch_orders))
+        .route("/api/orders", get(fetch_orders))
         .route("/api/transactions", post(fetch_transactions))
         .layer(middleware::from_fn(alt_auth))
         .with_state(state.clone());
