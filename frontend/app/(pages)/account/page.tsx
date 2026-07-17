@@ -1,15 +1,33 @@
 "use client"
 import { formateTime } from '@/components/appComponents/tradePageComponents/Drawer';
 import TradePageNavbar from '@/components/appComponents/tradePageComponents/TradePageNavbar';
+import { config } from '@/lib/config';
 import { position, positionDrawerColumnName } from '@/lib/timeFrames'
 import { useAppStore } from '@/store/store'
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import React from 'react';
 
 const page = () => {
   const router = useRouter();
   const hasPositions = position.length > 0;
+  const [isMounted, setIsMounted] = React.useState<boolean>(false);
   const [showOrders, setShowOrders] = React.useState<boolean>(false);
+  const [orders, setOrders] = React.useState([]);
+
+  const userId = useAppStore((state) => state.userId);
+
+  // const { isPending, error, data } = useQuery({
+  //   queryKey: ["orderData"],
+  //   queryFn: () => {
+  //     axios.get(`http://localhost:5000/orders`, config)
+  //   },
+  //   staleTime: 20000,
+  // })
+  // if (data || !error) {
+  //   setOrders(data)
+  // }
 
   const transactions = [
     { transaction_id: "2", order_id: "55", amount: "5000", type: "DEPOSIT", date: "11/02/26" },
@@ -19,6 +37,10 @@ const page = () => {
     { transaction_id: "26", order_id: "35", amount: "5000", type: "DEPOSIT", date: "11/02/26" }
   ]
 
+  React.useEffect(() => {
+    setIsMounted(true)
+  }, []);
+
   return (
     <div className='h-screen w-full'>
       <TradePageNavbar />
@@ -26,12 +48,17 @@ const page = () => {
 
         {/* transactions / orders */}
         <div className='flex items-center justify-between px-3 py-1.5 border border-zinc-800 rounded-t-md bg-[#101011]'>
-          <div className='flex items-center gap-3'>
+          <div className='flex items-center justify-between gap-3'>
             <button onClick={() => setShowOrders(false)} className='text-sm px-3 py-1 rounded-md text-gray-400 hover:text-gray-100'>transactions</button>
             <button onClick={() => setShowOrders(true)} className='text-sm px-3 py-1 rounded-md text-gray-400 hover:text-gray-100'>orders</button>
           </div>
+          <div>
+            <button className='text-sm px-3 py-1 rounded-md text-gray-400 hover:text-gray-100'>refresh</button>
+          </div>
         </div>
+
         {showOrders ? (
+          // orders
           <main>
             {/* All Pending Open Close */}
             <div className='flex items-center justify-between px-3 py-1.5 border-b border-l border-r border-zinc-800 bg-[#101011]'>
@@ -45,7 +72,6 @@ const page = () => {
 
             {/* Grid Table Container */}
             <div className=' border-x border-b border-zinc-800 rounded-b-md overflow-hidden bg-[#101011]'>
-
               {/* COLUMN NAME ROW */}
               <div className='flex border-b border-zinc-800'>
                 {[...positionDrawerColumnName].map((title, i) => (
@@ -58,7 +84,7 @@ const page = () => {
                 </div>
               </div>
 
-              {useAppStore.getState().userId !== "" ? (
+              {isMounted && (userId !== "" ? (
                 <div className='relative overflow-x-auto mb-10 w-full'>
                   <div>
                     {hasPositions ? (
@@ -112,12 +138,13 @@ const page = () => {
                     login or signup first
                   </div>
                 )
-              }
+              )}
             </div>
           </main>
         )
           :
           (
+            // transactions 
             <main>
 
               {/* Deposit Withdraw Profit Loss */}
@@ -131,7 +158,6 @@ const page = () => {
               </div>
 
               <div className=' border-x border-b border-zinc-800 rounded-b-md overflow-hidden bg-[#101011]'>
-
                 {/* COLUMN NAME ROW */}
                 <div className='flex border-b border-zinc-800'>
                   {["transaction id", "order id", "amt", "type", "date"].map((title, i) => (
@@ -141,7 +167,7 @@ const page = () => {
                   ))}
                 </div>
 
-                {useAppStore.getState().userId !== "" ? (
+                {isMounted && (userId !== "" ? (
                   <div className='relative overflow-x-auto w-full'>
                     <div>
                       {hasPositions ? (
@@ -170,7 +196,7 @@ const page = () => {
                       login or signup first
                     </div>
                   )
-                }
+                )}
               </div>
 
             </main>
