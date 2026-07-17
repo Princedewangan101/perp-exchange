@@ -11,8 +11,9 @@ export const orderPanelPriceData = [
     { title: "Fee", price: "20.67" },
 ]
 
-export const positionHeader = ["syl", "qty", "side", "open", "close", "sl", "tp", "pnl", "status", "exe-at"]
+export const positionDrawerColumnName = ["syl", "qty", "side", "open", "close", "sl", "tp", "pnl", "status", "exe-at"]
 
+export const position2 = []
 export const position = [
     {
         "id": "trd-201",
