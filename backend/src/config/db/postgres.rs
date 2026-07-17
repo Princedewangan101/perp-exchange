@@ -65,6 +65,10 @@ pub async fn connect_postgres() -> Result<Client, Error> {
 
         CREATE INDEX IF NOT EXISTS idx_transactions_user_id 
         ON transactions(userId);
+
+        ALTER TABLE orders 
+        ADD COLUMN IF NOT EXISTS pnl NUMERIC(10 ,2);
+
 ",
         )
         .await?;
