@@ -2,7 +2,7 @@
 import { formateTime } from '@/components/appComponents/tradePageComponents/Drawer';
 import TradePageNavbar from '@/components/appComponents/tradePageComponents/TradePageNavbar';
 import { config } from '@/lib/config';
-import { position, positionDrawerColumnName } from '@/lib/timeFrames'
+import { positionDrawerColumnName } from '@/lib/timeFrames'
 import { useAppStore } from '@/store/store'
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -11,23 +11,23 @@ import React from 'react';
 
 const page = () => {
   const router = useRouter();
-  const hasPositions = position.length > 0;
   const [isMounted, setIsMounted] = React.useState<boolean>(false);
-  const [showOrders, setShowOrders] = React.useState<boolean>(false);
-  const [orders, setOrders] = React.useState([]);
+  const [showOrders, setShowOrders] = React.useState<boolean>(true);
 
   const userId = useAppStore((state) => state.userId);
 
-  // const { isPending, error, data } = useQuery({
-  //   queryKey: ["orderData"],
-  //   queryFn: () => {
-  //     axios.get(`http://localhost:5000/orders`, config)
-  //   },
-  //   staleTime: 20000,
-  // })
-  // if (data || !error) {
-  //   setOrders(data)
-  // }
+  const { isPending: isFetchingOrdersPending, error: fetchingOrdersError, data: ordersData } = useQuery({
+    queryKey: ["orderData"],
+    queryFn: async () => {
+      const res = await axios.get(`http://localhost:5000/api/orders`, config)
+      return res.data
+    },
+    staleTime: 20000,
+  })
+  if (fetchingOrdersError) {
+    console.log("\n> fetchingOrdersError: ", fetchingOrdersError.message);
+  }
+
 
   const transactions = [
     { transaction_id: "2", order_id: "55", amount: "5000", type: "DEPOSIT", date: "11/02/26" },
@@ -84,61 +84,75 @@ const page = () => {
                 </div>
               </div>
 
-              {isMounted && (userId !== "" ? (
-                <div className='relative overflow-x-auto mb-10 w-full'>
-                  <div>
-                    {hasPositions ? (
-                      position.map(({ symbol, quantity, side, op, cp, closeTime, sl, tp, pnl, executionTime, status }, idx) => (
-                        <div key={idx} className='relative group z-0 border-b border-zinc-800 w-full flex'>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{symbol}</div>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{quantity}</div>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{side}</div>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{op}</div>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{cp}</div>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{sl}</div>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{tp}</div>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{pnl}</div>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{status}</div>
-                          <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>
-                            {closeTime !== "-" ? (
-                              <span className='text-[10px]'>{formateTime(closeTime).split(",")[0]}/{formateTime(closeTime).split(",")[1]}</span>
-                            ) : "-"}
-                          </div>
-                          <div className='text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>
-                            {executionTime !== "-" ? (
-                              <span className='text-[10px]'>{formateTime(executionTime).split(",")[0]}/{formateTime(executionTime).split(",")[1]}</span>
-                            ) : "-"}
-                          </div>
-                          <div className='group-hover:block hidden absolute top-0 right-0 bottom-0 w-25 z-10 py-2 bg-[#101011]'>
-                            <div className='flex items-center justify-around'>
-                              <svg xmlns="http://www.w3.org/2000/svg" className='size-5 text-zinc-400 hover:text-gray-100 cursor-default' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                              </svg>
-
-                              <svg xmlns="http://www.w3.org/2000/svg" className='size-6 text-zinc-400 hover:text-red-400 cursor-default' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-                              </svg>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className='w-full h-70 flex justify-center items-center'>
-                        <p className='font-semibold text-gray-500 hover:cursor-pointer' onClick={() => router.push("/auth")}>
-                          No positions there
-                        </p>
-                      </div>
-                    )}
-                  </div>
+              {!isMounted ? (
+                <div className='w-full h-100 flex justify-center items-center'>
+                  loading state . . .
                 </div>
               )
                 :
-                (
-                  <div className='w-full h-70 flex justify-center items-center'>
-                    login or signup first
-                  </div>
+                (userId !== "" ? (
+                  isFetchingOrdersPending ? (
+                    <div className='w-full h-100 flex justify-center items-center'>
+                      fetching orders . . .
+                    </div>
+                  ) :
+                    (
+                      <div className='relative overflow-x-auto mb-10 w-full'>
+                        <div>
+                          {ordersData?.orders && ordersData.orders.length > 0 ? (
+                            ordersData.orders.map((order: any, idx: number) => (
+                              <div key={idx} className='relative group z-0 border-b border-zinc-800 w-full flex'>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.symbol}</div>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.quantity}</div>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.side === 0 ? "SELL" : "BUY"}</div>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.open}</div>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.close ?? "-"}</div>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.sl ?? "-"}</div>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.tp ?? "-"}</div>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.pnl ?? "-"}</div>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.status}</div>
+                                <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>
+                                  {order.updated_at ? (
+                                    <span className='text-[10px]'>{formateTime(order.updated_at).split(",")[0]}/{formateTime(order.updated_at).split(",")[1]}</span>
+                                  ) : "-"}
+                                </div>
+                                <div className='text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>
+                                  {order.created_at ? (
+                                    <span className='text-[10px]'>{formateTime(order.created_at).split(",")[0]}/{formateTime(order.created_at).split(",")[1]}</span>
+                                  ) : "-"}
+                                </div>
+                                <div className='group-hover:block hidden absolute top-0 right-0 bottom-0 w-25 z-10 py-2 bg-[#101011]'>
+                                  <div className='flex items-center justify-around'>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className='size-5 text-zinc-400 hover:text-gray-100 cursor-default' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                    </svg>
+
+                                    <svg xmlns="http://www.w3.org/2000/svg" className='size-6 text-zinc-400 hover:text-red-400 cursor-default' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className='w-full h-70 flex justify-center items-center'>
+                              <p className='font-semibold text-gray-500 hover:cursor-pointer' onClick={() => router.push("/auth")}>
+                                No orders there
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
                 )
-              )}
+                  :
+                  (
+                    <div className='w-full h-70 flex justify-center items-center'>
+                      login or signup first
+                    </div>
+                  )
+                )
+              }
             </div>
           </main>
         )
@@ -167,36 +181,42 @@ const page = () => {
                   ))}
                 </div>
 
-                {isMounted && (userId !== "" ? (
-                  <div className='relative overflow-x-auto w-full'>
-                    <div>
-                      {hasPositions ? (
-                        transactions.map(({ transaction_id, order_id, amount, type, date }) => (
-                          <div key={transaction_id} className='relative z-0 border-b border-zinc-800 w-full flex'>
-                            <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{transaction_id}</div>
-                            <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order_id}</div>
-                            <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{amount}</div>
-                            <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{type}</div>
-                            <div className=' text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{date}</div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className='w-full h-70 flex justify-center items-center'>
-                          <p className='font-semibold text-gray-500 hover:cursor-pointer' onClick={() => router.push("/auth")}>
-                            No positions there
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                {!isMounted ? (
+                  <div className='w-full h-100 flex justify-center items-center'>
+                    loading state . . .
                   </div>
                 )
                   :
-                  (
-                    <div className='w-full h-70 flex justify-center items-center'>
-                      login or signup first
+                  (userId === "" ? (
+                    <div className='relative overflow-x-auto w-full'>
+                      <div>
+                        {transactions.length > 0 ? (
+                          transactions.map(({ transaction_id, order_id, amount, type, date }) => (
+                            <div key={transaction_id} className='relative z-0 border-b border-zinc-800 w-full flex'>
+                              <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{transaction_id}</div>
+                              <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order_id}</div>
+                              <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{amount}</div>
+                              <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{type}</div>
+                              <div className=' text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{date}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className='w-full h-70 flex justify-center items-center'>
+                            <p className='font-semibold text-gray-500 hover:cursor-pointer' onClick={() => router.push("/auth")}>
+                              No positions there
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )
-                )}
+                    :
+                    (
+                      <div className='w-full h-70 flex justify-center items-center'>
+                        login or signup first
+                      </div>
+                    )
+                  )}
               </div>
 
             </main>
