@@ -8,11 +8,12 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import React from 'react';
+import toast from 'react-hot-toast';
 
 const page = () => {
   const router = useRouter();
   const [isMounted, setIsMounted] = React.useState<boolean>(false);
-  const [showOrders, setShowOrders] = React.useState<boolean>(true);
+  const [showOrders, setShowOrders] = React.useState<boolean>(false);
 
   const userId = useAppStore((state) => state.userId);
 
@@ -23,19 +24,26 @@ const page = () => {
       return res.data
     },
     staleTime: 20000,
+    retry: false,
   })
-  if (fetchingOrdersError) {
-    console.log("\n> fetchingOrdersError: ", fetchingOrdersError.message);
-  }
 
+  const { isPending: isFetchingTransactionsPending, error: fetchingTransactionsError, data: transactionsData } = useQuery({
+    queryKey: ["transactions"],
+    queryFn: async () => {
+      const res = await axios.post(`http://localhost:5000/api/transactions`, {}, config)
+      return res.data
+    },
+    staleTime: 20000,
+    retry: false,
+  })
 
-  const transactions = [
-    { transaction_id: "2", order_id: "55", amount: "5000", type: "DEPOSIT", date: "11/02/26" },
-    { transaction_id: "3", order_id: "15", amount: "5000", type: "DEPOSIT", date: "11/02/26" },
-    { transaction_id: "5", order_id: "51", amount: "5000", type: "DEPOSIT", date: "11/02/26" },
-    { transaction_id: "23", order_id: "52", amount: "5000", type: "DEPOSIT", date: "11/02/26" },
-    { transaction_id: "26", order_id: "35", amount: "5000", type: "DEPOSIT", date: "11/02/26" }
-  ]
+  React.useEffect(() => {
+    if (fetchingOrdersError) toast.error(fetchingOrdersError.message)
+  }, [fetchingOrdersError])
+
+  React.useEffect(() => {
+    if (fetchingTransactionsError) toast.error(fetchingTransactionsError.message)
+  }, [fetchingTransactionsError])
 
   React.useEffect(() => {
     setIsMounted(true)
@@ -187,28 +195,37 @@ const page = () => {
                   </div>
                 )
                   :
-                  (userId === "" ? (
-                    <div className='relative overflow-x-auto w-full'>
-                      <div>
-                        {transactions.length > 0 ? (
-                          transactions.map(({ transaction_id, order_id, amount, type, date }) => (
-                            <div key={transaction_id} className='relative z-0 border-b border-zinc-800 w-full flex'>
-                              <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{transaction_id}</div>
-                              <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order_id}</div>
-                              <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{amount}</div>
-                              <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{type}</div>
-                              <div className=' text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{date}</div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className='w-full h-70 flex justify-center items-center'>
-                            <p className='font-semibold text-gray-500 hover:cursor-pointer' onClick={() => router.push("/auth")}>
-                              No positions there
-                            </p>
-                          </div>
-                        )}
+                  (userId !== "" ? (
+                    isFetchingTransactionsPending ? (
+                      <div className='w-full h-100 flex justify-center items-center'>
+                        fetching transactions . . .
                       </div>
-                    </div>
+                    ) :
+                      (
+                        <div className='relative overflow-x-auto w-full'>
+                          <div>
+                            {transactionsData?.transactions && transactionsData.transactions.length > 0 ? (
+                              transactionsData.transactions.map((tx: any) => (
+                                <div key={tx.transaction_id} className='relative z-0 border-b border-zinc-800 w-full flex'>
+                                  <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{tx.transaction_id}</div>
+                                  <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{tx.order_id ?? "-"}</div>
+                                  <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{tx.balance}</div>
+                                  <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{tx.transaction_type}</div>
+                                  <div className=' text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>
+                                    {tx.created_at ? new Date(tx.created_at * 1000).toLocaleDateString() : "-"}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className='w-full h-70 flex justify-center items-center'>
+                                <p className='font-semibold text-gray-500 hover:cursor-pointer' onClick={() => router.push("/auth")}>
+                                  No transactions there
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
                   )
                     :
                     (

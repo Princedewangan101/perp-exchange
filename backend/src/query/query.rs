@@ -40,10 +40,10 @@ pub struct FetchOrdersResponse {
 
 #[derive(Serialize)]
 pub struct Transaction {
-    pub transaction_id: String,
-    pub balance: i64,
+    pub transaction_id: i32,
+    pub balance: f64,
     pub transaction_type: String,
-    pub created_at: i64,
+    pub created_at: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -529,7 +529,7 @@ pub async fn update_balance(
 }
 
 pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> FetchOrdersResponse {
-        println!("\n\n> route: fetch_orders_from_db(), get triggererd.");
+    // println!("\n\n> route: fetch_orders_from_db(), get triggererd.");
     let user_id: i32 = match user_id.parse() {
         Ok(id) => id,
         Err(_) => {
@@ -577,7 +577,7 @@ pub async fn fetch_orders_from_db(postgres_client: &Client, user_id: &str) -> Fe
         })
         .collect();
 
-        println!("\n\n> route: fetch_orders_from_db(), success,");
+    // println!("\n\n> route: fetch_orders_from_db(), success,");
     return FetchOrdersResponse {
         success: true,
         message: "Orders fetched successfully".to_string(),
@@ -589,6 +589,7 @@ pub async fn fetch_transactions_from_db(
     postgres_client: &Client,
     user_id: &str,
 ) -> FetchTransactionsResponse {
+    println!("\n>[INFO] fetch_transactions_from_db , get triggered");
     let user_id: i32 = match user_id.parse() {
         Ok(id) => id,
         Err(_) => {
@@ -601,7 +602,7 @@ pub async fn fetch_transactions_from_db(
     };
     let result = postgres_client
         .query(
-            "SELECT transactionId, balance, type, created_at FROM orders WHERE userId = $1",
+            "SELECT transactionid, balance::double precision, type, created_at::text FROM transactions WHERE userid = $1",
             &[&user_id],
         )
         .await;
@@ -628,6 +629,7 @@ pub async fn fetch_transactions_from_db(
         })
         .collect();
 
+    println!("\n>[INFO] fetch_transactions_from_db , success");
     return FetchTransactionsResponse {
         success: true,
         message: "Orders fetched successfully".to_string(),

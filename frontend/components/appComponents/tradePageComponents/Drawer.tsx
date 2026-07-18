@@ -10,10 +10,11 @@ const columnWidths = [
 ]
 
   export function formateTime(timeAsParam: string) {
-    if (timeAsParam === "-") return "-"
-    const date = timeAsParam.split("T")[0].split("-")
-    const time = timeAsParam.split("T")[1].split(":")
-    return `${date[2]},${date[1]},${String(date[0]).slice(-2)},${time[0]},${time[1]}`
+    // if (timeAsParam === "-") return "-"
+    // const date = timeAsParam.split("T")[0].split("-")
+    // const time = timeAsParam.split("T")[1].split(":")
+    // return `${date[2]},${date[1]},${String(date[0]).slice(-2)},${time[0]},${time[1]}`
+    return timeAsParam
   }
 
 const Drawer = () => {
