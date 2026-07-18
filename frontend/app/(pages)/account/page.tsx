@@ -1,7 +1,8 @@
 "use client"
-import { formateTime } from '@/components/appComponents/tradePageComponents/Drawer';
+import ModifyBox from '@/components/appComponents/ModifyBox';
 import TradePageNavbar from '@/components/appComponents/tradePageComponents/TradePageNavbar';
 import { config } from '@/lib/config';
+import { formatTimestamp } from '@/lib/formateTimeStamp';
 import { positionDrawerColumnName } from '@/lib/timeFrames'
 import { useAppStore } from '@/store/store'
 import { useQuery } from '@tanstack/react-query';
@@ -13,7 +14,11 @@ import toast from 'react-hot-toast';
 const page = () => {
   const router = useRouter();
   const [isMounted, setIsMounted] = React.useState<boolean>(false);
-  const [showOrders, setShowOrders] = React.useState<boolean>(false);
+  const [showOrders, setShowOrders] = React.useState<boolean>(true);
+  const [modifyBoxOpen, setModifyBoxOpen] = React.useState<boolean>(false);
+  const [orderIdToModify, setOrderIdToModify] = React.useState<string>("");
+  const [symbolToModify, setSymbolToModify] = React.useState<string>("");
+
 
   const userId = useAppStore((state) => state.userId);
 
@@ -26,6 +31,9 @@ const page = () => {
     staleTime: 20000,
     retry: false,
   })
+  // console.log("> date: ",ordersData.orders[0].updated_at);
+  // console.log("> date: ", formatTimestamp(ordersData.orders[0].updated_at));
+
 
   const { isPending: isFetchingTransactionsPending, error: fetchingTransactionsError, data: transactionsData } = useQuery({
     queryKey: ["transactions"],
@@ -52,6 +60,7 @@ const page = () => {
   return (
     <div className='h-screen w-full'>
       <TradePageNavbar />
+      <ModifyBox isOpen={modifyBoxOpen} onClose={() => setModifyBoxOpen(false)} orderId={orderIdToModify} symbol={symbolToModify}/>
       <div className='w-9/10 mx-auto '>
 
         {/* transactions / orders */}
@@ -105,11 +114,11 @@ const page = () => {
                     </div>
                   ) :
                     (
-                      <div className='relative overflow-x-auto mb-10 w-full'>
+                      <div className='relative overflow-x-auto w-full'>
                         <div>
                           {ordersData?.orders && ordersData.orders.length > 0 ? (
-                            ordersData.orders.map((order: any, idx: number) => (
-                              <div key={idx} className='relative group z-0 border-b border-zinc-800 w-full flex'>
+                            ordersData.orders.map((order: any) => (
+                              <div key={order.order_id} className='relative group z-0 border-b border-zinc-800 w-full flex'>
                                 <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.symbol}</div>
                                 <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.quantity}</div>
                                 <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.side === 0 ? "SELL" : "BUY"}</div>
@@ -121,21 +130,29 @@ const page = () => {
                                 <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{order.status}</div>
                                 <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>
                                   {order.updated_at ? (
-                                    <span className='text-[10px]'>{formateTime(order.updated_at).split(",")[0]}/{formateTime(order.updated_at).split(",")[1]}</span>
+                                    <>
+                                      <span className='text-[10px] mr-2'>{formatTimestamp(order.updated_at).date}</span>
+                                      <span className='text-[13px] font-bold'>{formatTimestamp(order.updated_at).time}</span>
+                                    </>
                                   ) : "-"}
                                 </div>
                                 <div className='text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>
                                   {order.created_at ? (
-                                    <span className='text-[10px]'>{formateTime(order.created_at).split(",")[0]}/{formateTime(order.created_at).split(",")[1]}</span>
+                                    <>
+                                      <span className='text-[10px] mr-2'>{formatTimestamp(order.created_at).date}</span>
+                                      <span className='text-[13px] font-bold'>{formatTimestamp(order.created_at).time}</span>
+                                    </>
                                   ) : "-"}
                                 </div>
-                                <div className='group-hover:block hidden absolute top-0 right-0 bottom-0 w-25 z-10 py-2 bg-[#101011]'>
+
+                                {/* MODIFY AND CLOSE ICON */}
+                                <div className='group-hover:block hidden absolute top-0 right-0 bottom-0 w-27 z-10 pl-5 py-2 bg-[#101011]'>
                                   <div className='flex items-center justify-around'>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className='size-5 text-zinc-400 hover:text-gray-100 cursor-default' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg onClick={() => {setModifyBoxOpen(true), setOrderIdToModify(order.order_id), setSymbolToModify(order.symbol)}} xmlns="http://www.w3.org/2000/svg" className='size-5 text-zinc-400 hover:text-gray-100 cursor-pointer' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                                     </svg>
 
-                                    <svg xmlns="http://www.w3.org/2000/svg" className='size-6 text-zinc-400 hover:text-red-400 cursor-default' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className='size-7 text-zinc-400 hover:text-red-400 cursor-default' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M18 6 6 18" /><path d="m6 6 12 12" />
                                     </svg>
                                   </div>
@@ -212,7 +229,10 @@ const page = () => {
                                   <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{tx.balance}</div>
                                   <div className='border-r border-zinc-800 text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>{tx.transaction_type}</div>
                                   <div className=' text-xs text-gray-300 flex-1 my-2 py-1 px-2 text-center'>
-                                    {tx.created_at ? new Date(tx.created_at * 1000).toLocaleDateString() : "-"}
+                                    {tx.created_at ? <>
+                                      <span className='text-[10px] mr-2'>{formatTimestamp(tx.created_at).date}</span>
+                                      <span className='text-[13px] font-bold'>{formatTimestamp(tx.created_at).time}</span>
+                                    </> : "-"}
                                   </div>
                                 </div>
                               ))
