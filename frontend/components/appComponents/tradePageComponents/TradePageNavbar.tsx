@@ -3,11 +3,12 @@
 import { useAppStore } from '@/store/store';
 import { maskEmail } from '@/lib/utils';
 import Image from 'next/image'
-import React, { useEffect } from 'react'
+import React from 'react'
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const TradePageNavbar = () => {
-    // console.log("> userId (TradePageNavbar.tsx)", useAppStore.getState().userId);
+    const router = useRouter();
 
     const [moreOpen, setMoreOpen] = React.useState(false);
     const moreRef = React.useRef<HTMLDivElement>(null);
@@ -136,8 +137,8 @@ const TradePageNavbar = () => {
                             {profileOpen && (
                                 <div className='absolute top-full right-0 mt-1 w-48 bg-[#101011] border border-[#222225] rounded-xl shadow-lg z-50 p-3'>
                                     <p className='text-sm text-zinc-400 font-bold truncate cursor-default'>{maskEmail(userEmail)}</p>
-                                    <button className='text-gray-500 hover:text-gray-300 mt-2 font-bold'>Logout</button>
-                                    {/* <p className='text-xs text-zinc-400'>User ID: <span className='text-sm font-bold '>{userId}</span></p> */}
+                                    <div onClick={() => { router.push("/account") }} className='cursor-default text-gray-500 hover:text-gray-300 mt-2 font-bold'>Account</div>
+                                    <div className='cursor-default text-gray-500 hover:text-gray-300 mt-2 font-bold'>Logout</div>
                                 </div>
                             )}
                         </div>
