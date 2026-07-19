@@ -8,6 +8,8 @@ use crate::query::query::modify_order;
 
 #[derive(Deserialize)]
 pub struct MarketRequest {
+    pub order_id: String,
+    pub symbol: String,
     pub tp: f64,
     pub sl: f64,
 }
@@ -16,6 +18,9 @@ pub struct MarketRequest {
 pub struct MarketResponse {
     pub success: bool,
     pub message: String,
+    pub symbol: String,
+    pub tp: Option<f64>,
+    pub sl: Option<f64>,
 }
 
 pub async fn modify(
@@ -23,8 +28,11 @@ pub async fn modify(
     user: AuthenticatedUser,
     Json(req): Json<MarketRequest>,
 ) -> impl IntoResponse {
+    // println!("\n>[INFO] modify , TRIGGERED \n tp: {}\n sl: {}\n order_id: {}\n symbol: {}", req.tp, req.sl, req.order_id, req.symbol);
     let proto_req = proto::ModifyOrderRequest {
         user_id: user.0.clone(),
+        order_id: req.order_id.clone(),
+        symbol: req.symbol.clone(),
         tp: req.tp,
         sl: req.sl,
     };
@@ -37,55 +45,89 @@ pub async fn modify(
             Json(MarketResponse {
                 success: false,
                 message: "encode error".to_string(),
+                symbol: req.symbol.clone(),
+                tp: None,
+                sl: None,
             }),
         );
     }
 
-    match state
-        .nats
-        .request("orders.modify".to_string(), req_buffer.into())
-        .await
-    {
-        Ok(reply_message) => match proto::ModifyResponse::decode(reply_message.payload) {
-            Ok(proto_res) => {
-                let response = modify_order(&state.db, &user.0, &req.tp, &req.sl).await;
+    let response = modify_order(&state.db, &user.0, &req.order_id, &req.tp, &req.sl).await;
 
-                if !response {
-                    return (
-                        StatusCode::CONFLICT,
-                        Json(MarketResponse {
-                            success: false,
-                            message: "failed to modify".to_string(),
-                        }),
-                    );
-                }
-
-                return (
-                    StatusCode::OK,
-                    Json(MarketResponse {
-                        success: true,
-                        message: format!("{}", proto_res.message),
-                    }),
-                );
-            }
-            Err(_) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(MarketResponse {
-                        success: false,
-                        message: "decode error".to_string(),
-                    }),
-                );
-            }
-        },
-        Err(_) => {
+    match response {
+        Some((updated_tp, updated_sl)) => {
+            // println!("\n>[INFO] modify , SUCCESS");
             return (
-                StatusCode::GATEWAY_TIMEOUT,
+                StatusCode::OK,
+                Json(MarketResponse {
+                    success: true,
+                    message: "modified successfully".to_string(),
+                    symbol: req.symbol.clone(),
+                    tp: Some(updated_tp),
+                    sl: Some(updated_sl),
+                }),
+            );
+        }
+        None => {
+            return (
+                StatusCode::CONFLICT,
                 Json(MarketResponse {
                     success: false,
-                    message: "matching engine timeout".to_string(),
+                    message: "failed to modify".to_string(),
+                    symbol: req.symbol.clone(),
+                    tp: None,
+                    sl: None,
                 }),
             );
         }
     }
+
+    // match state
+    //     .nats
+    //     .request("orders.modify".to_string(), req_buffer.into())
+    //     .await
+    // {
+    //     Ok(reply_message) => match proto::ModifyResponse::decode(reply_message.payload) {
+    //         Ok(proto_res) => {
+    //             let response = modify_order(&state.db, &user.0, &req.tp, &req.sl).await;
+
+    //             if !response {
+    //                 return (
+    //                     StatusCode::CONFLICT,
+    //                     Json(MarketResponse {
+    //                         success: false,
+    //                         message: "failed to modify".to_string(),
+    //                     }),
+    //                 );
+    //             }
+
+    //             println!("\n>[INFO] modify , SUCCESS");
+    //             return (
+    //                 StatusCode::OK,
+    //                 Json(MarketResponse {
+    //                     success: true,
+    //                     message: format!("{}", proto_res.message),
+    //                 }),
+    //             );
+    //         }
+    //         Err(_) => {
+    //             return (
+    //                 StatusCode::INTERNAL_SERVER_ERROR,
+    //                 Json(MarketResponse {
+    //                     success: false,
+    //                     message: "decode error".to_string(),
+    //                 }),
+    //             );
+    //         }
+    //     },
+    //     Err(_) => {
+    //         return (
+    //             StatusCode::GATEWAY_TIMEOUT,
+    //             Json(MarketResponse {
+    //                 success: false,
+    //                 message: "matching engine timeout".to_string(),
+    //             }),
+    //         );
+    //     }
+    // }
 }
