@@ -1,5 +1,3 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+- response with short and chrisp.
+- take permission before make change in code base.
+- if u have make a change on backend then at the last of every thing run cargo check command to check every this running smoothly or not if the backend is written in RUST.
