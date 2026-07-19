@@ -31,9 +31,6 @@ const page = () => {
     staleTime: 20000,
     retry: false,
   })
-  // console.log("> date: ",ordersData.orders[0].updated_at);
-  // console.log("> date: ", formatTimestamp(ordersData.orders[0].updated_at));
-
 
   const { isPending: isFetchingTransactionsPending, error: fetchingTransactionsError, data: transactionsData } = useQuery({
     queryKey: ["transactions"],

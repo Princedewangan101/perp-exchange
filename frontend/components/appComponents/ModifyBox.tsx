@@ -1,9 +1,14 @@
+"use client"
+import { config } from "@/lib/config";
 import { useGSAP } from "@gsap/react";
+import { useMutation } from "@tanstack/react-query";
+import axios from "axios";
 import { gsap } from "gsap";
 import { Draggable } from "gsap/Draggable";
 import { useRouter } from "next/navigation";
 import React, { useRef } from 'react'
-
+import toast from "react-hot-toast";
+ 
 type ModifyBoxProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -11,19 +16,42 @@ type ModifyBoxProps = {
   symbol: string;
 };
 
-const ModifyBox = ({ isOpen, onClose, orderId, symbol}: ModifyBoxProps) => {
+type MutationFnData = {
+  orderId: string, symbol: string, tp: number, sl: number
+};
+
+const ModifyBox = ({ isOpen, onClose, orderId, symbol }: ModifyBoxProps) => {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLDivElement>(null);
   const [tp, setTp] = React.useState<number>();
   const [sl, setSl] = React.useState<number>();
 
+  const mutation = useMutation({
+    mutationFn: async (data: MutationFnData) => {
+      const body = { order_id: String(data.orderId), symbol: String(data.symbol), tp: Number(data.tp) || 0, sl: Number(data.sl) || 0 };
 
-  function handleModifyOrder(e:any) {
-    e.preventDefault(); 
+      const res = await axios.post('http://localhost:5000/api/modify', body, config);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message || 'Order executed successfully.');
+        
+      } else {
+        console.log(`\n> order data: ${data}`);
+        toast.error(data.message || 'Order failed.');
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message);
+    },
+  });
 
-    console.log("> orderId: MODIFY: ", orderId);
-    console.log("> orderId: MODIFY: ", symbol);
+  function handleModifyOrder(e: any) {
+    e.preventDefault();
+    mutation.mutate({ orderId, symbol, tp: tp ? Number(tp) : 0, sl: sl ? Number(sl) : 0 });
   }
 
   useGSAP(() => {
@@ -34,6 +62,7 @@ const ModifyBox = ({ isOpen, onClose, orderId, symbol}: ModifyBoxProps) => {
     Draggable.create(boxRef.current, {
       type: "x,y",
       bounds: containerRef.current,
+      trigger: handleRef.current,
       onDragStart: function () {
         gsap.to(boxRef.current, { scale: 1.05, duration: 0.1 });
       },
@@ -49,8 +78,12 @@ const ModifyBox = ({ isOpen, onClose, orderId, symbol}: ModifyBoxProps) => {
     <div ref={containerRef} className={`flex justify-center items-center absolute z-50 w-full h-[calc(100dvh-2.5rem)]`}>
       <div className='absolute inset-0 bg-black/20' onClick={onClose} />
       {/* fixed left-4 top-16 z-50 flex  items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg select-none hover:bg-blue-500 active:scale-105 transition-colors duration-150 */}
-      <main ref={boxRef} className='absolute z-500 cursor-move shadow-sm shadow-gray-800 rounded-lg'>
-        <form onSubmit={handleModifyOrder} className='bg-[#101011] border-zinc-800 w-70 rounded-lg border p-2'>
+      <main ref={boxRef} className='absolute z-500 shadow-sm shadow-gray-800 rounded-lg'>
+        <div ref={handleRef} className='cursor-move rounded-t-lg bg-[#101011] px-3 py-1.5 text-center select-none'>
+          <span className='tracking-widest text-gray-600 text-[10px] font-bold'>⋮ DRAG ⋮</span>
+        </div>
+        <form onSubmit={handleModifyOrder} className='bg-[#101011]  w-70 rounded-b-lg p-2'>
+          {/* TAKE PROFIT INPUT */}
           <div className='mb-2'>
             <label htmlFor="tp" className="block mb-1 font-bold text-xs text-gray-500">Take Profit</label>
             <input type="number" id="tp" name="tp" placeholder="67835.37"
@@ -73,12 +106,12 @@ const ModifyBox = ({ isOpen, onClose, orderId, symbol}: ModifyBoxProps) => {
           </div>
 
           {/* MODIFY BTN */}
-          <button onClick={handleModifyOrder} className={`w-full px-4 py-2 mb-1 font-semibold text-sm bg-zinc-900 hover:bg-zinc-800 text-gray-500 hover:text-gray-300 rounded-md focus:outline-none disabled:opacity-50`}>
+          <button type="submit" onClick={handleModifyOrder} className={`w-full px-4 py-2 mb-1 font-semibold text-sm bg-zinc-900 hover:bg-zinc-800 text-gray-500 hover:text-gray-300 rounded-md focus:outline-none disabled:opacity-50`}>
             MODIFY
           </button>
 
           {/* MODIFY ON CHART BTN */}
-          <button onClick={() => { router.push(`/trade/BTC-PERP`) }} className={`w-full px-4 py-2 mb-1 font-semibold text-sm bg-zinc-900 hover:bg-zinc-800 text-gray-500 hover:text-gray-300 rounded-md focus:outline-none disabled:opacity-50`}>
+          <button type="button" onClick={() => { router.push(`/trade/BTC-PERP`) }} className={`w-full px-4 py-2 mb-1 font-semibold text-sm bg-zinc-900 hover:bg-zinc-800 text-gray-500 hover:text-gray-300 rounded-md focus:outline-none disabled:opacity-50`}>
             MODIFY ON CHART
           </button>
 
@@ -100,7 +133,7 @@ const ModifyBox = ({ isOpen, onClose, orderId, symbol}: ModifyBoxProps) => {
           </div>
 
           {/* CANCLE BTN */}
-          <button type="submit" className={`w-full px-4 py-2 font-semibold text-sm bg-zinc-900 hover:bg-zinc-800 text-gray-500 hover:text-gray-300 rounded-md focus:outline-none disabled:opacity-50`}>
+          <button className={`w-full px-4 py-2 font-semibold text-sm bg-zinc-900 hover:bg-zinc-800 text-gray-500 hover:text-gray-300 rounded-md focus:outline-none disabled:opacity-50`}>
             CLOSE
           </button>
         </form>
