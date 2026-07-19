@@ -11,6 +11,6 @@ pub async fn fetch_orders(
     if !response.success {
         return (StatusCode::CONFLICT, Json(response));
     }
-    println!("\n\n> route: fetch_orders(), succes.");
+    // println!("\n\n> route: fetch_orders(), succes.");
     (StatusCode::OK, Json(response))
 }

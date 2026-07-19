@@ -15,6 +15,6 @@ pub async fn fetch_transactions(
         );
     }
 
-    println!("\n>[INFO] fetch_transactions , success");
+    // println!("\n>[INFO] fetch_transactions , success");
     (StatusCode::OK, Json(response))
 }

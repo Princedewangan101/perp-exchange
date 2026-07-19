@@ -38,9 +38,13 @@ pub struct LimitOrderRequest {
 pub struct ModifyOrderRequest {
     #[prost(string, tag = "1")]
     pub user_id: String,
-    #[prost(double, tag = "2")]
+    #[prost(string, tag = "2")]
+    pub order_id: String,
+    #[prost(string, tag = "3")]
+    pub symbol: String,
+    #[prost(double, tag = "4")]
     pub tp: f64,
-    #[prost(double, tag = "3")]
+    #[prost(double, tag = "5")]
     pub sl: f64,
 }
 
