@@ -343,61 +343,76 @@ pub async fn limit_order(
     }
 }
 
-pub async fn modify_order(postgres_client: &Client, user_id: &str, tp: &f64, sl: &f64) -> bool {
-    let user_id: i32 = match user_id.parse() {
-        Ok(id) => id,
-        Err(_) => return false,
-    };
+pub async fn modify_order(postgres_client: &Client, user_id: &str, order_id: &str, tp: &f64, sl: &f64) -> Option<(f64, f64)> {
+    // println!("\n>[INFO] modify query , TRIGGERED");
+    let user_id: i32 = user_id.parse().ok()?;
+    let order_id: i32 = order_id.parse().ok()?;
+
+    let pg_tp = Decimal::from_f64_retain(*tp).unwrap();
+    let pg_sl = Decimal::from_f64_retain(*sl).unwrap();
+
     let modify_query_response;
 
-    if *tp == 0.0 {
+    if *tp != 0.0 && *sl != 0.0 {
         modify_query_response = postgres_client
             .query_one(
-                "UPDATE users SET sl = $1 WHERE userId = $2",
-                &[&sl, &user_id],
+                "UPDATE orders SET tp = $1, sl = $2 WHERE userId = $3 AND orderId = $4 RETURNING tp::double precision, sl::double precision",
+                &[&pg_tp, &pg_sl, &user_id, &order_id],
             )
             .await;
         match modify_query_response {
-            Ok(_) => {
-                return true;
-            }
-            Err(err) => {
-                log_db_error("modify_order (tp=0)", &err);
-                return false;
-            }
-        }
-    } else if *sl == 0.0 {
-        modify_query_response = postgres_client
-            .query_one(
-                "UPDATE users SET tp = $1 WHERE userId = $2",
-                &[&tp, &user_id],
-            )
-            .await;
-        match modify_query_response {
-            Ok(_) => {
-                return true;
-            }
-            Err(err) => {
-                log_db_error("modify_order (sl=0)", &err);
-                return false;
-            }
-        }
-    } else {
-        modify_query_response = postgres_client
-            .query_one(
-                "UPDATE users SET tp = $1 AND sl = $2 WHERE userId = $3",
-                &[&tp, &sl, &user_id],
-            )
-            .await;
-        match modify_query_response {
-            Ok(_) => {
-                return true;
+            Ok(row) => {
+                let updated_tp: f64 = row.get(0);
+                let updated_sl: f64 = row.get(1);
+                // println!("\n>[INFO] modify , SUCCESS");
+                return Some((updated_tp, updated_sl));
             }
             Err(err) => {
                 log_db_error("modify_order (both)", &err);
-                return false;
+                return None;
             }
         }
+    } else if *tp != 0.0 {
+        modify_query_response = postgres_client
+            .query_one(
+                "UPDATE orders SET tp = $1 WHERE userId = $2 AND orderId = $3 RETURNING tp::double precision, sl::double precision",
+                &[&pg_tp, &user_id, &order_id],
+            )
+            .await;
+        match modify_query_response {
+            Ok(row) => {
+                let updated_tp: f64 = row.get(0);
+                let updated_sl: f64 = row.get(1);
+                // println!("\n>[INFO] modify , SUCCESS");
+                return Some((updated_tp, updated_sl));
+            }
+            Err(err) => {
+                log_db_error("modify_order (tp only)", &err);
+                return None;
+            }
+        }
+    } else if *sl != 0.0 {
+        modify_query_response = postgres_client
+            .query_one(
+                "UPDATE orders SET sl = $1 WHERE userId = $2 AND orderId = $3 RETURNING tp::double precision, sl::double precision",
+                &[&pg_sl, &user_id, &order_id],
+            )
+            .await;
+        match modify_query_response {
+            Ok(row) => {
+                let updated_tp: f64 = row.get(0);
+                let updated_sl: f64 = row.get(1);
+                // println!("\n>[INFO] modify , SUCCESS");
+                return Some((updated_tp, updated_sl));
+            }
+            Err(err) => {
+                log_db_error("modify_order (sl only)", &err);
+                return None;
+            }
+        }
+    } else {
+        // println!("\n>[INFO] modify query , None\ntp: {} sl: {}", pg_tp, pg_sl);
+        return None;
     }
 }
 
@@ -589,7 +604,7 @@ pub async fn fetch_transactions_from_db(
     postgres_client: &Client,
     user_id: &str,
 ) -> FetchTransactionsResponse {
-    println!("\n>[INFO] fetch_transactions_from_db , get triggered");
+    // println!("\n>[INFO] fetch_transactions_from_db , get triggered");
     let user_id: i32 = match user_id.parse() {
         Ok(id) => id,
         Err(_) => {
@@ -629,7 +644,7 @@ pub async fn fetch_transactions_from_db(
         })
         .collect();
 
-    println!("\n>[INFO] fetch_transactions_from_db , success");
+    // println!("\n>[INFO] fetch_transactions_from_db , success");
     return FetchTransactionsResponse {
         success: true,
         message: "Orders fetched successfully".to_string(),
