@@ -1,5 +1,5 @@
 "use client";
-import TradePageNavbar from '@/components/appComponents/tradePageComponents/TradePageNavbar';
+import TradePageNavbar from '@/components/appComponents/TradePageNavbar';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 

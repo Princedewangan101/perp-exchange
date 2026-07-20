@@ -4,7 +4,7 @@ import OrderPanel from '@/components/appComponents/tradePageComponents/OrderPane
 import OrderBook from '@/components/appComponents/tradePageComponents/OrderBook'
 import Topbar from '@/components/appComponents/tradePageComponents/Topbar'
 import { useAppStore } from '@/store/store'
-import TradePageNavbar from '@/components/appComponents/tradePageComponents/TradePageNavbar'
+import TradePageNavbar from '@/components/appComponents/TradePageNavbar'
 
 export interface Params {
     params: Promise<{ symbol: string }>

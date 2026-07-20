@@ -1,6 +1,6 @@
 "use client"
 import ModifyBox from '@/components/appComponents/ModifyBox';
-import TradePageNavbar from '@/components/appComponents/tradePageComponents/TradePageNavbar';
+import TradePageNavbar from '@/components/appComponents/TradePageNavbar';
 import { config } from '@/lib/config';
 import { formatTimestamp } from '@/lib/formateTimeStamp';
 import { positionDrawerColumnName } from '@/lib/timeFrames'
