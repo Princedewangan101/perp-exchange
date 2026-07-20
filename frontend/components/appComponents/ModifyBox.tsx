@@ -8,7 +8,7 @@ import { Draggable } from "gsap/Draggable";
 import { useRouter } from "next/navigation";
 import React, { useRef } from 'react'
 import toast from "react-hot-toast";
- 
+
 type ModifyBoxProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -28,6 +28,28 @@ const ModifyBox = ({ isOpen, onClose, orderId, symbol }: ModifyBoxProps) => {
   const [tp, setTp] = React.useState<number>();
   const [sl, setSl] = React.useState<number>();
 
+  
+  const orderCloseMutation = useMutation({
+    mutationFn: async (data: { orderId: string }) => {
+      const body = { order_id: String(data.orderId) };
+
+      const res = await axios.post('http://localhost:5000/api/close', body, config);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message || 'Order closed successfully.');
+
+      } else {
+        console.log(`\n> order data: ${data}`);
+        toast.error(data.message || 'Order failed to close.');
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message);
+    },
+  });
+
   const mutation = useMutation({
     mutationFn: async (data: MutationFnData) => {
       const body = { order_id: String(data.orderId), symbol: String(data.symbol), tp: Number(data.tp) || 0, sl: Number(data.sl) || 0 };
@@ -37,11 +59,11 @@ const ModifyBox = ({ isOpen, onClose, orderId, symbol }: ModifyBoxProps) => {
     },
     onSuccess: (data) => {
       if (data.success) {
-        toast.success(data.message || 'Order executed successfully.');
-        
+        toast.success(data.message || 'Order modified successfully.');
+
       } else {
         console.log(`\n> order data: ${data}`);
-        toast.error(data.message || 'Order failed.');
+        toast.error(data.message || 'Order failed to modify.');
       }
     },
     onError: (error: any) => {
@@ -52,6 +74,10 @@ const ModifyBox = ({ isOpen, onClose, orderId, symbol }: ModifyBoxProps) => {
   function handleModifyOrder(e: any) {
     e.preventDefault();
     mutation.mutate({ orderId, symbol, tp: tp ? Number(tp) : 0, sl: sl ? Number(sl) : 0 });
+  }
+
+  function handleOrderClose() {
+    orderCloseMutation.mutate({ orderId });
   }
 
   useGSAP(() => {
@@ -133,7 +159,7 @@ const ModifyBox = ({ isOpen, onClose, orderId, symbol }: ModifyBoxProps) => {
           </div>
 
           {/* CANCLE BTN */}
-          <button className={`w-full px-4 py-2 font-semibold text-sm bg-zinc-900 hover:bg-zinc-800 text-gray-500 hover:text-gray-300 rounded-md focus:outline-none disabled:opacity-50`}>
+          <button type="button" onClick={handleOrderClose} className={`w-full px-4 py-2 font-semibold text-sm bg-zinc-900 hover:bg-zinc-800 text-gray-500 hover:text-gray-300 rounded-md focus:outline-none disabled:opacity-50`}>
             CLOSE
           </button>
         </form>
