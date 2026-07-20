@@ -62,7 +62,7 @@ pub struct User {
 
 pub struct Deposit {
     pub success: bool,
-    pub balance: Option<i64>,
+    pub balance: Option<f64>,
 }
 
 pub async fn is_user_exist(postgres_client: &Client, email: &str) -> UserStatusResponse {
@@ -172,7 +172,8 @@ pub async fn find_user(postgres_client: &Client, email: &str) -> User {
     }
 }
 
-pub async fn deposit_balance(postgres_client: &Client, user_id: &str, amount: &str) -> Deposit {
+pub async fn deposit_balance(postgres_client: &Client, user_id: &str, amount: &f64) -> Deposit {
+        println!("\n>[INFO] deposit route , TRIGGERED\n amount: {}", amount);
     let user_id: i32 = match user_id.parse() {
         Ok(id) => id,
         Err(_) => {
@@ -182,19 +183,23 @@ pub async fn deposit_balance(postgres_client: &Client, user_id: &str, amount: &s
             };
         }
     };
+
+    let pg_amount = Decimal::from_f64_retain(*amount).unwrap();
+
     let post_query_result = postgres_client
         .query_one(
-            "UPDATE users SET balance = balance + $1 WHERE userId = $2 RETURNING balance",
-            &[&amount, &user_id],
+            "UPDATE users SET balance = balance + $1 WHERE userId = $2 RETURNING balance::double precision",
+            &[&pg_amount, &user_id],
         )
         .await;
 
     match post_query_result {
         Ok(row) => {
-            let balance = row.get(0);
+            println!("\n>[INFO] deposit route , SUCCESS");
+            let balance = row.get::<_, f64>(0);
             Deposit {
                 success: true,
-                balance: balance,
+                balance: Some(balance),
             }
         }
         Err(err) => {
