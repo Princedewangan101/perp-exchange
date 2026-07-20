@@ -5,7 +5,7 @@ use crate::{AppState, middlewares::auth::AuthenticatedUser, query::query::deposi
 
 #[derive(Deserialize)]
 pub struct DepositRequest {
-    amount: i64,
+    amount: f64,
 }
 
 #[derive(Serialize)]
@@ -19,14 +19,15 @@ pub async fn deposit(
     user: AuthenticatedUser,
     Json(req): Json<DepositRequest>,
 ) -> impl IntoResponse {
-    if req.amount.is_negative() {
+    // println!("\n>[INFO] deposit route , TRIGGERED\n amount: {}", req.amount);
+    if req.amount.is_sign_negative() {
         return (StatusCode::BAD_REQUEST, Json(DepositResponse {
             success: false,
             message: "amount cant be negative".to_string(),
         }));
     }
 
-    let response = deposit_balance(&state.db, &user.0, &req.amount.to_string()).await;
+    let response = deposit_balance(&state.db, &user.0, &req.amount).await;
 
     if !response.success {
         return (StatusCode::CONFLICT, Json(DepositResponse {
@@ -35,6 +36,7 @@ pub async fn deposit(
         }));
     }
 
+    // println!("\n>[INFO] deposit route , SUCCESS");
     return (StatusCode::OK, Json(DepositResponse {
         success: true,
         message: "deposit successful".to_string(),
