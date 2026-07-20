@@ -212,15 +212,18 @@ pub async fn deposit_balance(postgres_client: &Client, user_id: &str, amount: &f
     }
 }
 
-pub async fn withdraw_balance(postgres_client: &Client, user_id: &str, amount: &str) -> bool {
+pub async fn withdraw_balance(postgres_client: &Client, user_id: &str, amount: &f64) -> bool {
     let user_id: i32 = match user_id.parse() {
         Ok(id) => id,
         Err(_) => return false,
     };
+
+    let pg_amount = Decimal::from_f64_retain(*amount).unwrap();
+
     let withdraw_query_result = postgres_client
         .query_one(
-            "UPDATE users SET balance = balance - $1 WHERE userId = $2 AND balance >= $3",
-            &[&amount, &user_id, &amount],
+            "UPDATE users SET balance = balance - $1 WHERE userId = $2 AND balance >= $3 RETURNING balance::double precision",
+            &[&pg_amount, &user_id, &pg_amount],
         )
         .await;
 
