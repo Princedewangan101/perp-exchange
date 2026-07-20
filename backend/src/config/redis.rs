@@ -1,6 +1,6 @@
 use dotenvy::dotenv;
-use redis::aio::ConnectionManager;
 use redis::RedisError;
+use redis::aio::ConnectionManager;
 use std::env;
 
 pub async fn connect_redis() -> Result<ConnectionManager, RedisError> {

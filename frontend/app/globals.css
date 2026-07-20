@@ -1,1 +1,31 @@
-@import "tailwindcss";  :root {   --background: #ffffff;   --foreground: #0a0a0a;   --testbg: #14c1a7;   --muted: #27272a;   --primary: #14c1a7; }  @theme inline {   /* <div className="bg-background">  tailwind translate it into,  background-color: var(--background)*/   --color-background: var(--background);   --color-foreground: var(--foreground);   --color-testbg: var(--testbg);   --color-muted: var(--muted);   --color-primary: var(--primary);    --font-sans: var(--font-quicksand);   --font-mono: var(--font-nunito); }  @media (prefers-color-scheme: dark) {   :root {     --background: #0a0a0a;     --foreground: #ededed;     --testbg: #14c1a7;   } }  body {   background: var(--background);   color: var(--foreground); }  ::-webkit-scrollbar {   width: 6px;   height: 6px; }  ::-webkit-scrollbar-track {   background: transparent; }  ::-webkit-scrollbar-thumb {   background: #3f3f46;   border-radius: 3px; }  ::-webkit-scrollbar-thumb:hover {   background: #52525b; }  @keyframes dotPulse {   0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }   40% { opacity: 1; transform: scale(1); } }  .animate-dotPulse {   animation: dotPulse 1.4s infinite ease-in-out both; }  @layer base {   ::selection {     background-color: var(--testbg);     color: #ffffff;   } }
+@import "tailwindcss";
+    :root {   --background: #ffffff;
+      --foreground: #0a0a0a;
+      --testbg: #14c1a7;
+      --muted: #27272a;
+      --primary: #14c1a7; }
+    @theme inline {   /* <div className="bg-background">  tailwind translate it into,  background-color: var(--background)*/   --color-background: var(--background);
+      --color-foreground: var(--foreground);
+      --color-testbg: var(--testbg);
+      --color-muted: var(--muted);
+      --color-primary: var(--primary);
+        --font-sans: var(--font-quicksand);
+      --font-mono: var(--font-nunito); }
+    @media (prefers-color-scheme: dark) {   :root {     --background: #0a0a0a;
+          --foreground: #ededed;
+          --testbg: #14c1a7;
+      } }
+    body {   background: var(--background);
+      color: var(--foreground); }
+    ::-webkit-scrollbar {   width: 6px;
+      height: 6px; }
+    ::-webkit-scrollbar-track {   background: transparent; }
+    ::-webkit-scrollbar-thumb {   background: #3f3f46;
+      border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover {   background: #52525b; }
+    @keyframes dotPulse {   0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1); } }
+    .animate-dotPulse {   animation: dotPulse 1.4s infinite ease-in-out both; }
+    @layer base {   ::selection {     background-color: var(--testbg);
+          color: #ffffff;
+      } }

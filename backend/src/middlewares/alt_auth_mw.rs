@@ -16,7 +16,8 @@ pub struct Claims {
 pub async fn alt_auth(mut req: Request, next: Next) -> Response {
     // println!("[ALT AUTH MW] Processing incoming request to URI: {}", req.uri());
 
-    let auth_header = req.headers()
+    let auth_header = req
+        .headers()
         .get("authorization")
         .and_then(|v| v.to_str().ok());
 
