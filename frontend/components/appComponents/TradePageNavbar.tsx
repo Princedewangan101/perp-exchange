@@ -1,5 +1,6 @@
 "use client";
 
+import RampBox from '@/components/appComponents/RampBox';
 import { useAppStore } from '@/store/store';
 import { maskEmail } from '@/lib/utils';
 import Image from 'next/image'
@@ -15,6 +16,8 @@ const TradePageNavbar = () => {
     const [profileOpen, setProfileOpen] = React.useState(false);
     const profileRef = React.useRef<HTMLDivElement>(null);
     const [hydrated, setHydrated] = React.useState(false);
+    const [rampOpen, setRampOpen] = React.useState(false);
+    const [rampMode, setRampMode] = React.useState<"deposit" | "withdraw">("deposit");
 
     const userId = useAppStore((state) => state.userId);
     const userEmail = useAppStore((state) => state.userEmail);
@@ -130,12 +133,13 @@ const TradePageNavbar = () => {
                     </>
                 )
                     :
-                    (<>
+                    (
+                    <>
                         <div className='flex gap-1'>
-                            <button className='flex items-center justify-center w-25 py-2 rounded-md font-semibold bg-[#141416] text-white'>
+                            <button onClick={() => { setRampMode("deposit"); setRampOpen(true); }} className='flex items-center justify-center w-22 py-2 rounded-md font-semibold bg-[#141416] text-white'>
                                 deposit
                             </button>
-                            <button className='flex items-center justify-center w-25 py-2 rounded-md font-semibold bg-transparent hover:bg-[#141416] text-white'>
+                            <button onClick={() => { setRampMode("withdraw"); setRampOpen(true); }} className='flex items-center justify-center w-22 py-2 rounded-md font-semibold bg-transparent hover:bg-[#141416] text-white'>
                                 withdraw
                             </button>
                         </div>
@@ -155,6 +159,7 @@ const TradePageNavbar = () => {
                     )
                 }
             </div>
+            <RampBox key={String(rampOpen) + rampMode} isOpen={rampOpen} onClose={() => setRampOpen(false)} defaultMode={rampMode} />
         </nav>
     )
 }
