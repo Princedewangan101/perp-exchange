@@ -5,7 +5,7 @@ use crate::{query::query::withdraw_balance, AppState, middlewares::auth::Authent
 
 #[derive(Deserialize)]
 pub struct WithdrawRequest {
-    amount: i64,
+    amount: f64,
 }
 
 #[derive(Serialize)]
@@ -20,11 +20,11 @@ pub async fn withdraw(
     Json(req): Json<WithdrawRequest>,
 ) -> impl IntoResponse {
 
-    if req.amount.is_negative() {
+    if req.amount.is_sign_negative() {
         return (StatusCode::BAD_REQUEST, Json(WithdrawResponse{success:false, message:"amount cant be negative".to_string()}))
     }
 
-    let response = withdraw_balance(&state.db, &user.0, &req.amount.to_string()).await;
+    let response = withdraw_balance(&state.db, &user.0, &req.amount).await;
 
     if !response {
         return (StatusCode::CONFLICT, Json(WithdrawResponse{success:false, message:"failed to withdraw".to_string()}))
