@@ -46,8 +46,8 @@ const TradePageNavbar = () => {
 
             {/* LEFT DIV */}
             <div className='flex items-center gap-1 mr-auto ml-10'>
-                <button className='px-3 py-1 rounded text-gray-400 hover:text-white'>SPOT</button>
-                <button className='px-3 py-1 rounded text-gray-400 hover:text-white'>FUTURE</button>
+                <button onClick={() => { router.push("/market") }} className='px-3 py-1 rounded text-gray-400 hover:text-white'>SPOT</button>
+                <button onClick={() => { router.push("/market") }} className='px-3 py-1 rounded text-gray-400 hover:text-white'>FUTURE</button>
                 <div className='relative' ref={moreRef}>
                     <button
                         onClick={() => setMoreOpen(!moreOpen)}
@@ -118,6 +118,7 @@ const TradePageNavbar = () => {
                         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                     </svg>
                 </button>
+
                 {!hydrated || userId === "" ? (
                     <>
                         <Link href="/auth"><button className='flex items-center gap-1 px-2 py-1 rounded font-semibold bg-zinc-800 text-white'>
@@ -130,6 +131,14 @@ const TradePageNavbar = () => {
                 )
                     :
                     (<>
+                        <div className='flex gap-1'>
+                            <button className='flex items-center justify-center w-25 py-2 rounded-md font-semibold bg-[#141416] text-white'>
+                                deposit
+                            </button>
+                            <button className='flex items-center justify-center w-25 py-2 rounded-md font-semibold bg-transparent hover:bg-[#141416] text-white'>
+                                withdraw
+                            </button>
+                        </div>
                         <div className='relative' ref={profileRef}>
                             <button onClick={() => setProfileOpen(!profileOpen)} className='p-0'>
                                 <Image src="/dp.png" alt='logo' width={30} height={30} className='rounded-full' />
