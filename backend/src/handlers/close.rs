@@ -1,3 +1,4 @@
+use crate::handlers::close;
 use crate::{AppState, middlewares::auth::AuthenticatedUser};
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use prost::Message;
@@ -14,6 +15,7 @@ pub struct MarketRequest {
 #[derive(Serialize)]
 pub struct MarketResponse {
     pub success: bool,
+    pub balance: Option<f64>,
     pub message: String,
 }
 
@@ -22,84 +24,130 @@ pub async fn close(
     user: AuthenticatedUser,
     Json(req): Json<MarketRequest>,
 ) -> impl IntoResponse {
-if req.order_id.is_empty() {
-    return (StatusCode::BAD_REQUEST, Json(MarketResponse { success: false, message: "missing required feild".to_string() }));
-}
-
-    let proto_req = proto::CloseOrderRequest {
-        user_id: user.0.clone(),
-        order_id: req.order_id.clone(),
-    };
-
-    let mut req_buffer = Vec::new();
-
-    if proto_req.encode(&mut req_buffer).is_err() {
+    // println!("\n>[INFO] close fn , TRIGGERED");
+    if req.order_id.is_empty() {
         return (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::BAD_REQUEST,
             Json(MarketResponse {
                 success: false,
-                message: "encode error".to_string(),
+                balance: None,
+                message: "missing required feild".to_string(),
             }),
         );
     }
 
-    match state
-        .nats
-        .request("orders.close".to_string(), req_buffer.into())
-        .await
-    {
-        Ok(reply_message) => match proto::CloseOrderResponse::decode(reply_message.payload) {
-            Ok(proto_res) => {
-                let response = close_order(&state.db, &user.0, &req.order_id, &proto_res.close_price, "manual").await;
+    let close_price = 999.34;
 
-                if !response {
-                    return (
-                        StatusCode::CONFLICT,
-                        Json(MarketResponse {
-                            success: false,
-                            message: "failed to modify".to_string(),
-                        }),
-                    );
-                }
+    let response = close_order(&state.db, &user.0, &req.order_id, &close_price, "manual").await;
 
-                let balance_response = update_balance(&state.db, &req.order_id, &user.0, &proto_res.close_price).await;
-
-                if !balance_response {
-                    return (
-                        StatusCode::CONFLICT,
-                        Json(MarketResponse {
-                            success: false,
-                            message: "failed to update balance".to_string(),
-                        }),
-                    );
-                }
-
-                return (
-                    StatusCode::OK,
-                    Json(MarketResponse {
-                        success: true,
-                        message: format!("{}", proto_res.message),
-                    }),
-                );
-            }
-            Err(_) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(MarketResponse {
-                        success: false,
-                        message: "decode error".to_string(),
-                    }),
-                );
-            }
-        },
-        Err(_) => {
-            return (
-                StatusCode::GATEWAY_TIMEOUT,
-                Json(MarketResponse {
-                    success: false,
-                    message: "matching engine timeout".to_string(),
-                }),
-            );
-        }
+    if !response {
+        return (
+            StatusCode::CONFLICT,
+            Json(MarketResponse {
+                success: false,
+                balance: None,
+                message: "failed to close order".to_string(),
+            }),
+        );
     }
+
+    let balance_response = update_balance(&state.db, &req.order_id, &user.0, &close_price).await;
+
+    if !balance_response.success {
+        return (
+            StatusCode::CONFLICT,
+            Json(MarketResponse {
+                success: false,
+                balance: None,
+                message: "failed to close order".to_string(),
+            }),
+        );
+    }
+
+    // println!("\n>[INFO] close fn , SUCCESS");
+    return (
+        StatusCode::OK,
+        Json(MarketResponse {
+            success: true,
+            balance: balance_response.balance,
+            message: "order closed".to_string(),
+        }),
+    );
+
+    // let proto_req = proto::CloseOrderRequest {
+    //     user_id: user.0.clone(),
+    //     order_id: req.order_id.clone(),
+    // };
+
+    // let mut req_buffer = Vec::new();
+
+    // if proto_req.encode(&mut req_buffer).is_err() {
+    //     return (
+    //         StatusCode::INTERNAL_SERVER_ERROR,
+    //         Json(MarketResponse {
+    //             success: false,
+    //             message: "encode error".to_string(),
+    //         }),
+    //     );
+    // }
+
+    // match state
+    //     .nats
+    //     .request("orders.close".to_string(), req_buffer.into())
+    //     .await
+    // {
+    //     Ok(reply_message) => match proto::CloseOrderResponse::decode(reply_message.payload) {
+    //         Ok(proto_res) => {
+    //             let response = close_order(&state.db, &user.0, &req.order_id, &proto_res.close_price, "manual").await;
+
+    //             if !response {
+    //                 return (
+    //                     StatusCode::CONFLICT,
+    //                     Json(MarketResponse {
+    //                         success: false,
+    //                         message: "failed to modify".to_string(),
+    //                     }),
+    //                 );
+    //             }
+
+    //             let balance_response = update_balance(&state.db, &req.order_id, &user.0, &proto_res.close_price).await;
+
+    //             if !balance_response {
+    //                 return (
+    //                     StatusCode::CONFLICT,
+    //                     Json(MarketResponse {
+    //                         success: false,
+    //                         message: "failed to update balance".to_string(),
+    //                     }),
+    //                 );
+    //             }
+
+    //             return (
+    //                 StatusCode::OK,
+    //                 Json(MarketResponse {
+    //                     success: true,
+    //                     message: format!("{}", proto_res.message),
+    //                 }),
+    //             );
+    //         }
+    //         Err(_) => {
+    //             return (
+    //                 StatusCode::INTERNAL_SERVER_ERROR,
+    //                 Json(MarketResponse {
+    //                     success: false,
+    //                     message: "decode error".to_string(),
+    //                 }),
+    //             );
+    //         }
+    //     },
+    //     Err(_) => {
+    //         return (
+    //             StatusCode::GATEWAY_TIMEOUT,
+    //             Json(MarketResponse {
+    //                 success: false,
+    //                 message: "matching engine timeout".to_string(),
+    //             }),
+    //         );
+    //     }
+    // }
 }
