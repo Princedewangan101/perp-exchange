@@ -1,7 +1,10 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, middlewares::auth::AuthenticatedUser, query::query::deposit_balance};
+use crate::{
+    AppState, middlewares::auth::AuthenticatedUser,
+    query::deposit_balance::{deposit_balance, DepositBalanceRequest},
+};
 
 #[derive(Deserialize)]
 pub struct DepositRequest {
@@ -29,7 +32,7 @@ pub async fn deposit(
         );
     }
 
-    let response = deposit_balance(&state.db, &user.0, &req.amount).await;
+    let response = deposit_balance(&state.db, DepositBalanceRequest { user_id: user.0.clone(), amount: req.amount }).await;
 
     if !response.success {
         return (

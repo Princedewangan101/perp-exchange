@@ -8,7 +8,9 @@ use axum_extra::extract::cookie::{Cookie, SameSite};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, handlers::signup::Claims, query::query::find_user};
+use crate::{
+    AppState, handlers::signup::Claims, query::find_user::{find_user, FindUserRequest},
+};
 
 #[derive(Deserialize)]
 pub struct SigninRequest {
@@ -42,7 +44,7 @@ pub async fn signin(
 
     let response_body;
 
-    let response = find_user(&state.db, &req.email).await;
+    let response = find_user(&state.db, FindUserRequest { email: req.email.clone() }).await;
     println!("\n> response: {:?}", response);
     if response.user_id.is_none() {
         response_body = SigninResponse {

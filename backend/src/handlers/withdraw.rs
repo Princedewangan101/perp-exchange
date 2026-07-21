@@ -1,7 +1,10 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, middlewares::auth::AuthenticatedUser, query::query::withdraw_balance};
+use crate::{
+    AppState, middlewares::auth::AuthenticatedUser,
+    query::withdraw_balance::{withdraw_balance, WithdrawBalanceRequest},
+};
 
 #[derive(Deserialize)]
 pub struct WithdrawRequest {
@@ -29,9 +32,9 @@ pub async fn withdraw(
         );
     }
 
-    let response = withdraw_balance(&state.db, &user.0, &req.amount).await;
+    let response = withdraw_balance(&state.db, WithdrawBalanceRequest { user_id: user.0.clone(), amount: req.amount }).await;
 
-    if !response {
+    if !response.success {
         return (
             StatusCode::CONFLICT,
             Json(WithdrawResponse {

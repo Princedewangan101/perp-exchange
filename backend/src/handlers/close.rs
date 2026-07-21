@@ -2,7 +2,8 @@ use crate::{AppState, middlewares::auth::AuthenticatedUser};
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::query::query::{close_order, update_balance};
+use crate::query::close_order::{close_order, CloseOrderRequest};
+use crate::query::update_balance::{update_balance, UpdateBalanceRequest};
 
 #[derive(Deserialize)]
 pub struct MarketRequest {
@@ -34,9 +35,18 @@ pub async fn close(
 
     let close_price = 999.34;
 
-    let response = close_order(&state.db, &user.0, &req.order_id, &close_price, "manual").await;
+    let response = close_order(
+        &state.db,
+        CloseOrderRequest {
+            user_id: user.0.clone(),
+            order_id: req.order_id.clone(),
+            close_price,
+            close_type: "manual".to_string(),
+        },
+    )
+    .await;
 
-    if !response {
+    if !response.success {
         return (
             StatusCode::CONFLICT,
             Json(MarketResponse {
@@ -47,7 +57,15 @@ pub async fn close(
         );
     }
 
-    let balance_response = update_balance(&state.db, &req.order_id, &user.0, &close_price).await;
+    let balance_response = update_balance(
+        &state.db,
+        UpdateBalanceRequest {
+            order_id: req.order_id.clone(),
+            user_id: user.0.clone(),
+            close_price,
+        },
+    )
+    .await;
 
     if !balance_response.success {
         return (

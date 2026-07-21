@@ -4,7 +4,7 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::proto;
-use crate::query::query::limit_order;
+use crate::query::limit_order::{limit_order, LimitOrderRequest, LimitOrderResponse};
 
 #[derive(Deserialize)]
 pub struct OrderEvent {
@@ -75,22 +75,24 @@ pub async fn limit(
 
     let response = limit_order(
         &state.db,
-        &user.0,
-        &req.order.symbol,
-        &req.order.quantity,
-        &req.order.side,
-        &req.order.order_type,
-        "pending".to_string(),
-        &req.order.leverage,
-        &req.edge.tp.unwrap_or(0.0),
-        &req.edge.sl.unwrap_or(0.0),
-        &req.order.price,
+        LimitOrderRequest {
+            user_id: user.0.clone(),
+            symbol: req.order.symbol.clone(),
+            quantity: req.order.quantity,
+            side: req.order.side,
+            order_type: req.order.order_type.clone(),
+            status: "pending".to_string(),
+            leverage: req.order.leverage,
+            tp: req.edge.tp.unwrap_or(0.0),
+            sl: req.edge.sl.unwrap_or(0.0),
+            open: req.order.price,
+        },
     )
     .await;
 
     let order_id = match response {
-        Some(id) => id,
-        None => {
+        LimitOrderResponse { success: true, order_id: Some(id) } => id,
+        _ => {
             return (
                 StatusCode::CONFLICT,
                 Json(MarketResponse {

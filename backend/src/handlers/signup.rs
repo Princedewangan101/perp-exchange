@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AppState,
-    query::query::{UserStatusResponse, create_user, is_user_exist},
+    query::create_user::{create_user, CreateUserRequest},
+    query::is_user_exist::{is_user_exist, IsUserExistRequest, IsUserExistResponse},
 };
 
 #[derive(Deserialize)]
@@ -50,7 +51,7 @@ pub async fn signup(
         return (StatusCode::BAD_REQUEST, headers, Json(err_body));
     }
 
-    let response: UserStatusResponse = is_user_exist(&state.db, &req.email).await;
+    let response: IsUserExistResponse = is_user_exist(&state.db, IsUserExistRequest { email: req.email.clone() }).await;
 
     let response_body: SignupResponse;
 
@@ -69,7 +70,7 @@ pub async fn signup(
             }
         };
 
-        let create_user_response = create_user(&state.db, &req.email, &hashed_password).await;
+        let create_user_response = create_user(&state.db, CreateUserRequest { email: req.email.clone(), password: hashed_password }).await;
 
         if !create_user_response.success {
             response_body = SignupResponse {

@@ -4,7 +4,7 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::proto;
-use crate::query::query::modify_order;
+use crate::query::modify_order::{modify_order, ModifyOrderRequest, ModifyOrderResponse};
 
 #[derive(Deserialize)]
 pub struct MarketRequest {
@@ -51,10 +51,19 @@ pub async fn modify(
         );
     }
 
-    let response = modify_order(&state.db, &user.0, &req.order_id, &req.tp, &req.sl).await;
+    let response = modify_order(
+        &state.db,
+        ModifyOrderRequest {
+            user_id: user.0.clone(),
+            order_id: req.order_id.clone(),
+            tp: req.tp,
+            sl: req.sl,
+        },
+    )
+    .await;
 
     match response {
-        Some((updated_tp, updated_sl)) => {
+        ModifyOrderResponse { success: true, tp: Some(updated_tp), sl: Some(updated_sl) } => {
             return (
                 StatusCode::OK,
                 Json(MarketResponse {
@@ -66,7 +75,7 @@ pub async fn modify(
                 }),
             );
         }
-        None => {
+        _ => {
             return (
                 StatusCode::CONFLICT,
                 Json(MarketResponse {
