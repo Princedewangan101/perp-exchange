@@ -4,7 +4,7 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::proto;
-use crate::query::limit_order::{limit_order, LimitOrderRequest, LimitOrderResponse};
+use crate::query::limit_order::{LimitOrderRequest, LimitOrderResponse, limit_order};
 
 #[derive(Deserialize)]
 pub struct OrderEvent {
@@ -31,11 +31,23 @@ pub struct MarketRequest {
     pub edge: OrderEdge,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct MarketResponse {
     pub success: bool,
     pub message: String,
     pub order_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct OrderEventPayload {
+    order_id: String,
+    user_id: String,
+    symbol: String,
+    quantity: f64,
+    side: u32,
+    order_type: String,
+    leverage: u32,
+    price: f64,
 }
 
 pub async fn limit(
@@ -43,6 +55,7 @@ pub async fn limit(
     user: AuthenticatedUser,
     Json(req): Json<MarketRequest>,
 ) -> impl IntoResponse {
+    // INPUT CHECK
     if req.order.symbol.is_empty()
         || req.order.quantity <= 0.0
         || req.order.side > 1
@@ -73,6 +86,7 @@ pub async fn limit(
         req.order.price
     );
 
+    // QUERY CALL
     let response = limit_order(
         &state.db,
         LimitOrderRequest {
@@ -90,8 +104,12 @@ pub async fn limit(
     )
     .await;
 
+    // RESPONSE MATCHING
     let order_id = match response {
-        LimitOrderResponse { success: true, order_id: Some(id) } => id,
+        LimitOrderResponse {
+            success: true,
+            order_id: Some(id),
+        } => id,
         _ => {
             return (
                 StatusCode::CONFLICT,
@@ -104,6 +122,28 @@ pub async fn limit(
         }
     };
 
+
+    let event_payload = OrderEventPayload {
+        order_id: order_id.clone(),
+        user_id: user.0.clone(),
+        symbol: req.order.symbol.clone(),
+        quantity: req.order.quantity,
+        side: req.order.side,
+        order_type: req.order.order_type.clone(),
+        leverage: req.order.leverage,
+        price: req.order.price,
+    };
+    
+    // ENQUEUE
+    if let Ok(bytes) = serde_json::to_vec(&event_payload) {
+        if let Err(e) = state.nats.publish("order.limit", bytes.into()).await {
+            eprintln!("\n[ERROR] Failed to publish event to NATS: {:?}", e);
+        }
+    } else {
+        eprintln!("\n[ERROR] Failed to serialize order evemt payload")
+    }
+
+    println!("\n> [LIMIT_ORDER_RESPONSE]: success:true, message:order in pending, order_id:{}",order_id );
     return (
         StatusCode::OK,
         Json(MarketResponse {
