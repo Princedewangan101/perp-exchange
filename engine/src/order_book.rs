@@ -250,7 +250,7 @@ impl Market {
                         message: "order in orderbook".to_string(),
                     });
                 } else {
-                    let remaining_quantity = self.fill_order(payload).unwrap_or(0.0);
+                    let remaining_quantity = self.fill_order(payload.clone()).unwrap_or(0.0);
                     if remaining_quantity > 0.0 {
                         self.buy_order
                             .entry(Reverse(price))
@@ -292,7 +292,7 @@ impl Market {
                         message: "order in orderbook".to_string(),
                     });
                 } else {
-                    let remaining_quantity = self.fill_order(payload).unwrap_or(0.0);
+                    let remaining_quantity = self.fill_order(payload.clone()).unwrap_or(0.0);
                     if remaining_quantity > 0.0 {
                         self.buy_order
                             .entry(Reverse(price))
