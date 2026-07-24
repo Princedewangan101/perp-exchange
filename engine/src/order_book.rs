@@ -8,22 +8,22 @@ use std::{
 
 // ---- INCOMING ORDER FROM THE USER ----
 #[derive(Clone, Deserialize)]
-struct LimitOrderEventPayload {
-    user_id: String,
-    order_id: String,
-    side: u32,             // 1 = BUY, 2 = SELL
-    quantity: f64,
-    symbol: String,
-    order_type: String,
-    leverage: u32,
-    price: f64,
-    tp: f64,               // TAKE PROFIT LEVEL
-    sl: f64,               // STOP LOSS LEVEL
+pub struct LimitOrderEventPayload {
+    pub user_id: String,
+    pub order_id: String,
+    pub side: u32,             // 1 = BUY, 2 = SELL
+    pub quantity: f64,
+    pub symbol: String,
+    pub order_type: String,
+    pub leverage: u32,
+    pub price: f64,
+    pub tp: f64,               // TAKE PROFIT LEVEL
+    pub sl: f64,               // STOP LOSS LEVEL
 }
 
 // ---- RESPONSE AFTER ADDING A LIMIT ORDER ----
 #[derive(Deserialize)]
-struct AddLimitOrderResponse {
+pub struct AddLimitOrderResponse {
     success: bool,
     message: String,
     remaining_quantity: Option<f64>,   // SOME IF ORDER PARTIALLY FILLED
@@ -31,6 +31,7 @@ struct AddLimitOrderResponse {
 
 // ---- PAYLOAD TO MODIFY TP/SL OF AN EXISTING ORDER ----
 pub struct ModifyPayload {
+    pub symbol: String,
     pub side: u32,
     pub order_id: String,
     pub has_updated_tp_val: bool,
@@ -48,6 +49,7 @@ pub struct ModifyResponse {
 
 // ---- PAYLOAD TO CLOSE A SINGLE ORDER ----
 pub struct ClosePayload {
+    pub symbol: String,
     pub side: u32,
     pub quantity: Decimal,
     pub order_id: String,
