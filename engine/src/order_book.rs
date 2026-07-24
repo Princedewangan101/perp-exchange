@@ -49,7 +49,6 @@ pub struct ClosePayload {
     pub order_id: String,
     pub user_id: String,
 }
-
 pub struct CloseResponse {
     pub success: bool,
     pub order_id: Option<String>,
@@ -62,6 +61,20 @@ pub struct CloseAllResponse {
     pub success: bool,
     pub message: String,
 }
+pub struct MarketPayload {
+    pub user_id: String,
+    pub order_id: String,
+    pub quantity: Decimal,
+    pub tp: Decimal,
+    pub sl: Decimal,
+    pub side: f64,
+}
+pub struct MarketResponse {
+    pub success: bool,
+    pub price: Decimal,
+    pub order_id: String,
+    pub message: String,
+}
 
 type UserId = String;
 type OrderId = String;
@@ -71,6 +84,7 @@ type Sl = Decimal;
 
 pub struct Market {
     pub symbol: String,
+    pub last_price: Decimal,
     pub buy_order: BTreeMap<std::cmp::Reverse<Price>, Vec<LimitOrderEventPayload>>,
     pub sell_order: BTreeMap<Price, Vec<LimitOrderEventPayload>>,
     pub user_orders: HashMap<UserId, HashSet<OrderId>>,
@@ -82,6 +96,7 @@ impl Market {
     pub fn new(symbol: String) -> Self {
         Self {
             symbol,
+            last_price: Decimal::ZERO,
             buy_order: BTreeMap::new(),
             sell_order: BTreeMap::new(),
             user_orders: HashMap::new(),
@@ -93,6 +108,7 @@ impl Market {
     fn fill_order(&mut self, payload: LimitOrderEventPayload) -> Option<f64> {
         if payload.side == 1 {
             if let Some((price, mut lowest_price_sell_orders_vec)) = self.sell_order.pop_first() {
+                self.last_price = price;
                 let mut total_quantity_at_this_price: Decimal = Decimal::ZERO;
                 let mut payload_quantity: Decimal =
                     Decimal::from_f64_retain(payload.quantity).unwrap();
@@ -151,7 +167,10 @@ impl Market {
                 return None;
             }
         } else {
-            if let Some((price, mut highest_price_buy_orders_vec)) = self.buy_order.pop_last() {
+            if let Some((Reverse(price), mut highest_price_buy_orders_vec)) =
+                self.buy_order.pop_last()
+            {
+                self.last_price = price;
                 let mut total_quantity_at_this_price: Decimal = Decimal::ZERO;
                 let mut payload_quantity: Decimal =
                     Decimal::from_f64_retain(payload.quantity).unwrap();
@@ -476,6 +495,110 @@ impl Market {
         }
     }
 
+    pub fn market(&mut self, payload: MarketPayload) -> MarketResponse {
+        let mut remaining_quantity = payload.quantity;
 
+        if payload.side == 1.0 {
+            while remaining_quantity > Decimal::ZERO {
+                if let Some((price, orders)) = self.sell_order.pop_first() {
+                    self.last_price = price;
+                    let mut total_at_price = Decimal::ZERO;
+                    for o in orders.iter() {
+                        total_at_price += Decimal::from_f64_retain(o.quantity).unwrap();
+                    }
 
+                    if total_at_price > remaining_quantity {
+                        let mut new_orders = Vec::new();
+                        for mut o in orders {
+                            let qty = Decimal::from_f64_retain(o.quantity).unwrap();
+                            if qty <= remaining_quantity {
+                                remaining_quantity -= qty;
+                                self.sell_order_lookup.remove(&o.order_id);
+                                if let Some(ids) = self.user_orders.get_mut(&o.user_id) {
+                                    ids.remove(&o.order_id);
+                                }
+                            } else {
+                                o.quantity -= remaining_quantity.to_f64().unwrap();
+                                remaining_quantity = Decimal::ZERO;
+                                new_orders.push(o);
+                            }
+                        }
+                        if !new_orders.is_empty() {
+                            self.sell_order.insert(price, new_orders);
+                        }
+                        break;
+                    } else {
+                        for o in orders {
+                            remaining_quantity -= Decimal::from_f64_retain(o.quantity).unwrap();
+                            self.sell_order_lookup.remove(&o.order_id);
+                            if let Some(ids) = self.user_orders.get_mut(&o.user_id) {
+                                ids.remove(&o.order_id);
+                            }
+                        }
+                    }
+                } else {
+                    return MarketResponse {
+                        success: false,
+                        price: self.last_price,
+                        order_id: payload.order_id,
+                        message: "no liquidity on sell side".to_string(),
+                    };
+                }
+            }
+        } else {
+            while remaining_quantity > Decimal::ZERO {
+                if let Some((Reverse(price), orders)) = self.buy_order.pop_last() {
+                    self.last_price = price;
+                    let mut total_at_price = Decimal::ZERO;
+                    for o in orders.iter() {
+                        total_at_price += Decimal::from_f64_retain(o.quantity).unwrap();
+                    }
+
+                    if total_at_price > remaining_quantity {
+                        let mut new_orders = Vec::new();
+                        for mut o in orders {
+                            let qty = Decimal::from_f64_retain(o.quantity).unwrap();
+                            if qty <= remaining_quantity {
+                                remaining_quantity -= qty;
+                                self.buy_order_lookup.remove(&o.order_id);
+                                if let Some(ids) = self.user_orders.get_mut(&o.user_id) {
+                                    ids.remove(&o.order_id);
+                                }
+                            } else {
+                                o.quantity -= remaining_quantity.to_f64().unwrap();
+                                remaining_quantity = Decimal::ZERO;
+                                new_orders.push(o);
+                            }
+                        }
+                        if !new_orders.is_empty() {
+                            self.buy_order.insert(Reverse(price), new_orders);
+                        }
+                        break;
+                    } else {
+                        for o in orders {
+                            remaining_quantity -= Decimal::from_f64_retain(o.quantity).unwrap();
+                            self.buy_order_lookup.remove(&o.order_id);
+                            if let Some(ids) = self.user_orders.get_mut(&o.user_id) {
+                                ids.remove(&o.order_id);
+                            }
+                        }
+                    }
+                } else {
+                    return MarketResponse {
+                        success: false,
+                        price: self.last_price,
+                        order_id: payload.order_id,
+                        message: "no liquidity on buy side".to_string(),
+                    };
+                }
+            }
+        }
+
+        MarketResponse {
+            success: true,
+            price: self.last_price,
+            order_id: payload.order_id,
+            message: "market order filled".to_string(),
+        }
+    }
 }
