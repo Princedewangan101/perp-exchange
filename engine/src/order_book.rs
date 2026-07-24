@@ -262,6 +262,10 @@ impl Market {
                 } else {
                     let remaining_quantity = self.fill_order(payload.clone()).unwrap_or(0.0);
                     if remaining_quantity > 0.0 {
+                        let order_id = payload.order_id.clone();
+                        let user_id = payload.user_id.clone();
+                        let tp = Decimal::from_f64_retain(payload.tp).unwrap();
+                        let sl = Decimal::from_f64_retain(payload.sl).unwrap();
                         self.buy_order
                             .entry(Reverse(price))
                             .or_insert_with(Vec::new)
@@ -269,6 +273,11 @@ impl Market {
                                 quantity: remaining_quantity,
                                 ..payload
                             });
+                        self.buy_order_lookup.insert(order_id.clone(), (price, tp, sl));
+                        self.user_orders
+                            .entry(user_id.clone())
+                            .or_insert_with(HashSet::new)
+                            .insert(order_id);
                         return Ok(AddLimitOrderResponse {
                             success: true,
                             remaining_quantity: Some(remaining_quantity),
@@ -292,20 +301,19 @@ impl Market {
         } else {
             if let Some((lowest_buy_order_price, _)) = self.buy_order.last_key_value() {
                 if *lowest_buy_order_price > Reverse(price) {
+                    let order_id = payload.order_id.clone();
+                    let user_id = payload.user_id.clone();
+                    let tp = Decimal::from_f64_retain(payload.tp).unwrap();
+                    let sl = Decimal::from_f64_retain(payload.sl).unwrap();
                     self.buy_order
                         .entry(Reverse(price))
                         .or_insert_with(Vec::new)
                         .push(payload);
-                    self.sell_order_lookup.insert(
-                        payload.order_id.clone(),
-                        (price,
-                        Decimal::from_f64_retain(payload.tp).unwrap(),
-                        Decimal::from_f64_retain(payload.sl).unwrap()),
-                    );
+                    self.sell_order_lookup.insert(order_id.clone(), (price, tp, sl));
                     self.user_orders
-                        .entry(payload.user_id.clone())
+                        .entry(user_id.clone())
                         .or_insert_with(HashSet::new)
-                        .insert(payload.order_id.clone());
+                        .insert(order_id);
                     return Ok(AddLimitOrderResponse {
                         success: true,
                         remaining_quantity: None,
@@ -314,6 +322,10 @@ impl Market {
                 } else {
                     let remaining_quantity = self.fill_order(payload.clone()).unwrap_or(0.0);
                     if remaining_quantity > 0.0 {
+                        let order_id = payload.order_id.clone();
+                        let user_id = payload.user_id.clone();
+                        let tp = Decimal::from_f64_retain(payload.tp).unwrap();
+                        let sl = Decimal::from_f64_retain(payload.sl).unwrap();
                         self.buy_order
                             .entry(Reverse(price))
                             .or_insert_with(Vec::new)
@@ -321,16 +333,11 @@ impl Market {
                                 quantity: remaining_quantity,
                                 ..payload
                             });
-                        self.sell_order_lookup.insert(
-                            payload.order_id.clone(),
-                            (price,
-                            Decimal::from_f64_retain(payload.tp).unwrap(),
-                            Decimal::from_f64_retain(payload.sl).unwrap()),
-                        );
+                        self.sell_order_lookup.insert(order_id.clone(), (price, tp, sl));
                         self.user_orders
-                            .entry(payload.user_id.clone())
+                            .entry(user_id.clone())
                             .or_insert_with(HashSet::new)
-                            .insert(payload.order_id.clone());
+                            .insert(order_id);
                         return Ok(AddLimitOrderResponse {
                             success: true,
                             remaining_quantity: Some(remaining_quantity),
