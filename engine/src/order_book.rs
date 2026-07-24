@@ -6,27 +6,30 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
 };
 
+// ---- INCOMING ORDER FROM THE USER ----
 #[derive(Clone, Deserialize)]
 struct LimitOrderEventPayload {
     user_id: String,
     order_id: String,
-    side: u32,
+    side: u32,             // 1 = BUY, 2 = SELL
     quantity: f64,
     symbol: String,
     order_type: String,
     leverage: u32,
     price: f64,
-    tp: f64,
-    sl: f64,
+    tp: f64,               // TAKE PROFIT LEVEL
+    sl: f64,               // STOP LOSS LEVEL
 }
 
+// ---- RESPONSE AFTER ADDING A LIMIT ORDER ----
 #[derive(Deserialize)]
 struct AddLimitOrderResponse {
     success: bool,
     message: String,
-    remaining_quantity: Option<f64>,
+    remaining_quantity: Option<f64>,   // SOME IF ORDER PARTIALLY FILLED
 }
 
+// ---- PAYLOAD TO MODIFY TP/SL OF AN EXISTING ORDER ----
 pub struct ModifyPayload {
     pub side: u32,
     pub order_id: String,
@@ -43,6 +46,7 @@ pub struct ModifyResponse {
     pub message: String,
 }
 
+// ---- PAYLOAD TO CLOSE A SINGLE ORDER ----
 pub struct ClosePayload {
     pub side: u32,
     pub quantity: Decimal,
@@ -54,6 +58,8 @@ pub struct CloseResponse {
     pub order_id: Option<String>,
     pub message: String,
 }
+
+// ---- PAYLOAD TO CLOSE ALL ORDERS OF A USER ----
 pub struct CloseAllPayload {
     pub user_id: String,
 }
@@ -61,17 +67,19 @@ pub struct CloseAllResponse {
     pub success: bool,
     pub message: String,
 }
+
+// ---- PAYLOAD FOR A MARKET ORDER (FILLS IMMEDIATELY AT BEST PRICE) ----
 pub struct MarketPayload {
     pub user_id: String,
     pub order_id: String,
     pub quantity: Decimal,
     pub tp: Decimal,
     pub sl: Decimal,
-    pub side: f64,
+    pub side: f64,          // 1.0 = BUY, OTHER = SELL
 }
 pub struct MarketResponse {
     pub success: bool,
-    pub price: Decimal,
+    pub price: Decimal,     // PRICE AT WHICH THE ORDER WAS FILLED
     pub order_id: String,
     pub message: String,
 }
@@ -82,14 +90,15 @@ type Price = Decimal;
 type Tp = Decimal;
 type Sl = Decimal;
 
+// ---- MARKET STATE FOR ONE TRADING SYMBOL (e.g. BTC) ----
 pub struct Market {
     pub symbol: String,
-    pub last_price: Decimal,
-    pub buy_order: BTreeMap<std::cmp::Reverse<Price>, Vec<LimitOrderEventPayload>>,
-    pub sell_order: BTreeMap<Price, Vec<LimitOrderEventPayload>>,
-    pub user_orders: HashMap<UserId, HashSet<OrderId>>,
-    pub buy_order_lookup: HashMap<OrderId, (Price, Tp, Sl)>, // on modify the tp sl get updates
-    pub sell_order_lookup: HashMap<OrderId, (Price, Tp, Sl)>, // on modify the tp sl get updates
+    pub last_price: Decimal,                                            // LAST TRADED PRICE, UPDATED AFTER EVERY FILL
+    pub buy_order: BTreeMap<std::cmp::Reverse<Price>, Vec<LimitOrderEventPayload>>,    // BUY ORDERS SORTED HIGHEST-TO-LOWEST PRICE
+    pub sell_order: BTreeMap<Price, Vec<LimitOrderEventPayload>>,      // SELL ORDERS SORTED LOWEST-TO-HIGHEST PRICE
+    pub user_orders: HashMap<UserId, HashSet<OrderId>>,                // TRACKS WHICH USER OWNS WHICH ORDERS
+    pub buy_order_lookup: HashMap<OrderId, (Price, Tp, Sl)>,           // QUICK LOOKUP: ORDER_ID -> (PRICE, TP, SL) FOR BUYS
+    pub sell_order_lookup: HashMap<OrderId, (Price, Tp, Sl)>,          // QUICK LOOKUP: ORDER_ID -> (PRICE, TP, SL) FOR SELLS
 }
 
 impl Market {
@@ -105,8 +114,11 @@ impl Market {
         }
     }
 
+    // ---- CORE MATCHING ENGINE: ATTEMPT TO FILL A NEW ORDER AGAINST THE ORDER BOOK ----
+    // RETURNS THE REMAINING QUANTITY (0.0 = FULLY FILLED, >0.0 = PARTIALLY FILLED)
     fn fill_order(&mut self, payload: LimitOrderEventPayload) -> Option<f64> {
         if payload.side == 1 {
+            // BUY ORDER: MATCH AGAINST THE LOWEST-PRICED SELL ORDERS
             if let Some((price, mut lowest_price_sell_orders_vec)) = self.sell_order.pop_first() {
                 self.last_price = price;
                 let mut total_quantity_at_this_price: Decimal = Decimal::ZERO;
@@ -119,14 +131,10 @@ impl Market {
                 }
 
                 if total_quantity_at_this_price > payload_quantity {
-                    // payload_quantity -= lowest_price_sell_orders_vec.iter().quqntity
-                    // notify(payload-userId, orderid, payload-userId , orderid)
+                    // SELL ORDERS AT THIS PRICE EXCEED OUR BUY QUANTITY -> PARTIAL FILL
                     let mut remaining: Vec<LimitOrderEventPayload> = Vec::new();
 
                     for mut sell_order in lowest_price_sell_orders_vec {
-                        // if let Some(pat) = self.order_lookup.get(&sell_order.order_id) {
-                        //     unimplemented!();
-                        // }
                         if sell_order.user_id == payload.user_id {
                             remaining.push(sell_order);
                             continue;
@@ -142,12 +150,8 @@ impl Market {
                             sell_order.quantity -= payload_quantity.to_f64().unwrap();
                             payload_quantity = Decimal::ZERO;
                             remaining.push(sell_order);
-                            // here we are sending event for both user, because now payload_quantity is 0.0
-                            // executed_order_notification_event(sell_order.order_id, sell_order.user_id, payload_quantity, payload.order_id, payload.user_id)  // currently, not coded this fn
                         } else {
                             payload_quantity -= sell_order_quantity
-                            // here we will send event for one user because the payload_quantity is still remaining.
-                            // executed_order_notification_event(sell_order.order_id, sell_order.user_id, sell_order.quantity, null, null)  // currently, not coded this fn
                         }
                     }
 
@@ -156,9 +160,9 @@ impl Market {
 
                     return Some(payload_quantity.to_f64().unwrap());
                 } else {
+                    // SELL ORDERS AT THIS PRICE <= OUR BUY QUANTITY -> FULL CONSUMPTION OF THIS LEVEL
                     for sell_order in lowest_price_sell_orders_vec.iter_mut() {
                         payload_quantity -= Decimal::from_f64_retain(sell_order.quantity).unwrap();
-                        // executed_order_notification_event(sell_order.order_id, sell_order.user_id, payload_quantity, payload.order_id, payload.user_id)  // currently, not coded this fn
                     }
                     return Some(payload_quantity.to_f64().unwrap());
                 }
@@ -167,6 +171,7 @@ impl Market {
                 return None;
             }
         } else {
+            // SELL ORDER: MATCH AGAINST THE HIGHEST-PRICED BUY ORDERS
             if let Some((Reverse(price), mut highest_price_buy_orders_vec)) =
                 self.buy_order.pop_last()
             {
@@ -181,6 +186,7 @@ impl Market {
                 }
 
                 if total_quantity_at_this_price > payload_quantity {
+                    // BUY ORDERS AT THIS PRICE EXCEED OUR SELL QUANTITY -> PARTIAL FILL
                     let mut remaining: Vec<LimitOrderEventPayload> = Vec::new();
 
                     for mut buy_order in highest_price_buy_orders_vec {
@@ -199,23 +205,19 @@ impl Market {
                             buy_order.quantity -= payload_quantity.to_f64().unwrap();
                             payload_quantity = Decimal::ZERO;
                             remaining.push(buy_order);
-                            // here we are sending event for both user, because now payload_quantity is 0.0
-                            // executed_order_notification_event(sell_order.order_id, sell_order.user_id, payload_quantity, payload.order_id, payload.user_id)  // currently, not coded this fn
                         } else {
                             payload_quantity -= buy_order_quantity
-                            // here we will send event for one user because the payload_quantity is still remaining.
-                            // executed_order_notification_event(sell_order.order_id, sell_order.user_id, sell_order.quantity, null, null)  // currently, not coded this fn
                         }
                     }
 
                     highest_price_buy_orders_vec = remaining;
-                    self.buy_order.insert(price, highest_price_buy_orders_vec);
+                    self.buy_order.insert(Reverse(price), highest_price_buy_orders_vec);
 
                     return Some(payload_quantity.to_f64().unwrap());
                 } else {
+                    // BUY ORDERS AT THIS PRICE <= OUR SELL QUANTITY -> FULL CONSUMPTION
                     for buy_order in highest_price_buy_orders_vec.iter_mut() {
                         payload_quantity -= Decimal::from_f64_retain(buy_order.quantity).unwrap();
-                        // executed_order_notification_event(sell_order.order_id, sell_order.user_id, payload_quantity, payload.order_id, payload.user_id)  // currently, not coded this fn
                     }
                     return Some(payload_quantity.to_f64().unwrap());
                 }
@@ -226,20 +228,20 @@ impl Market {
         }
     }
 
+    // ---- ADD A LIMIT ORDER ----
+    // IF THE ORDER CAN BE FILLED AGAINST EXISTING ORDERS -> MATCH IT
+    // OTHERWISE PUT IT INTO THE ORDER BOOK
     pub fn add_limit_order(
         &mut self,
         payload: LimitOrderEventPayload,
     ) -> Result<AddLimitOrderResponse, AddLimitOrderResponse> {
-        // assuming from buy side.
-        // will check that the sell orders lowest price is less than a payload price.
-        // if NO then there is no one willing to sell for that buy order in that case we will just put buy order in Map.
-        // if YES then there is some one willing to sell the for the buy order, will check that the qty of sell order is more than a buy order or not and flip orders.
-
         let price = Decimal::from_f64_retain(payload.price).unwrap();
 
         if payload.side == 1 {
+            // BUY ORDER
             if let Some((lowest_sell_order_price, _)) = self.sell_order.first_key_value() {
                 if *lowest_sell_order_price > price {
+                    // CHEAPEST SELL IS ABOVE OUR BUY PRICE -> NO MATCH, PUT IN BOOK
                     self.buy_order
                         .entry(Reverse(price))
                         .or_insert_with(Vec::new)
@@ -260,8 +262,10 @@ impl Market {
                         message: "order in orderbook".to_string(),
                     });
                 } else {
+                    // THERE ARE SELL ORDERS AT OR BELOW OUR BUY PRICE -> TRY TO FILL
                     let remaining_quantity = self.fill_order(payload.clone()).unwrap_or(0.0);
                     if remaining_quantity > 0.0 {
+                        // PARTIALLY FILLED: PUT THE REST INTO THE BOOK
                         let order_id = payload.order_id.clone();
                         let user_id = payload.user_id.clone();
                         let tp = Decimal::from_f64_retain(payload.tp).unwrap();
@@ -291,22 +295,38 @@ impl Market {
                     });
                 }
             } else {
-                eprint!("\n[ERROR] failed to convert payload price in Decimal");
+                // EMPTY ORDER BOOK -> PUT BUY ORDER IN THE BOOK
+                self.buy_order
+                    .entry(Reverse(price))
+                    .or_insert_with(Vec::new)
+                    .push(payload.clone());
+                self.buy_order_lookup.insert(
+                    payload.order_id.clone(),
+                    (price,
+                    Decimal::from_f64_retain(payload.tp).unwrap(),
+                    Decimal::from_f64_retain(payload.sl).unwrap()),
+                );
+                self.user_orders
+                    .entry(payload.user_id.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(payload.order_id.clone());
                 return Ok(AddLimitOrderResponse {
-                    success: false,
+                    success: true,
                     remaining_quantity: None,
-                    message: "failed to convert payload price in Decimal.".to_string(),
+                    message: "order in orderbook".to_string(),
                 });
             }
         } else {
+            // SELL ORDER
             if let Some((lowest_buy_order_price, _)) = self.buy_order.last_key_value() {
                 if *lowest_buy_order_price > Reverse(price) {
+                    // HIGHEST BUY IS BELOW OUR SELL PRICE -> NO MATCH, PUT IN BOOK
                     let order_id = payload.order_id.clone();
                     let user_id = payload.user_id.clone();
                     let tp = Decimal::from_f64_retain(payload.tp).unwrap();
                     let sl = Decimal::from_f64_retain(payload.sl).unwrap();
-                    self.buy_order
-                        .entry(Reverse(price))
+                    self.sell_order
+                        .entry(price)
                         .or_insert_with(Vec::new)
                         .push(payload);
                     self.sell_order_lookup.insert(order_id.clone(), (price, tp, sl));
@@ -320,14 +340,16 @@ impl Market {
                         message: "order in orderbook".to_string(),
                     });
                 } else {
+                    // THERE ARE BUY ORDERS AT OR ABOVE OUR SELL PRICE -> TRY TO FILL
                     let remaining_quantity = self.fill_order(payload.clone()).unwrap_or(0.0);
                     if remaining_quantity > 0.0 {
+                        // PARTIALLY FILLED: PUT THE REST INTO THE BOOK
                         let order_id = payload.order_id.clone();
                         let user_id = payload.user_id.clone();
                         let tp = Decimal::from_f64_retain(payload.tp).unwrap();
                         let sl = Decimal::from_f64_retain(payload.sl).unwrap();
-                        self.buy_order
-                            .entry(Reverse(price))
+                        self.sell_order
+                            .entry(price)
                             .or_insert_with(Vec::new)
                             .push(LimitOrderEventPayload {
                                 quantity: remaining_quantity,
@@ -351,16 +373,30 @@ impl Market {
                     });
                 }
             } else {
-                eprint!("\n[ERROR] failed to convert payload price in Decimal");
+                // EMPTY ORDER BOOK -> PUT SELL ORDER IN THE BOOK
+                let order_id = payload.order_id.clone();
+                let user_id = payload.user_id.clone();
+                let tp = Decimal::from_f64_retain(payload.tp).unwrap();
+                let sl = Decimal::from_f64_retain(payload.sl).unwrap();
+                self.sell_order
+                    .entry(price)
+                    .or_insert_with(Vec::new)
+                    .push(payload);
+                self.sell_order_lookup.insert(order_id.clone(), (price, tp, sl));
+                self.user_orders
+                    .entry(user_id.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(order_id);
                 return Ok(AddLimitOrderResponse {
-                    success: false,
+                    success: true,
                     remaining_quantity: None,
-                    message: "failed to convert payload price in Decimal.".to_string(),
+                    message: "order in orderbook".to_string(),
                 });
             }
         }
     }
 
+    // ---- MODIFY TP/SL OF AN EXISTING ORDER IN THE LOOKUP MAP ----
     pub fn modify(&mut self, payload: ModifyPayload) -> Option<ModifyResponse> {
         if payload.side == 1 {
             if let Some(order_tuple_ref) = self.buy_order_lookup.get_mut(&payload.order_id) {
@@ -467,8 +503,8 @@ impl Market {
         }
     }
 
+    // ---- CLOSE A SINGLE ORDER: REMOVE FROM LOOKUP, ORDER TREE, AND USER_ORDERS ----
     pub fn close(&mut self, payload: ClosePayload) -> CloseResponse {
-        // remove from order lookup and order tree
         if payload.side == 1 {
             if let Some((price, _, _)) = self.buy_order_lookup.remove(&payload.order_id) {
                 if let Some(orders) = self.buy_order.get_mut(&Reverse(price)) {
@@ -488,7 +524,6 @@ impl Market {
                 }
             }
         }
-        // remove from user_orders set
         if let Some(order_ids) = self.user_orders.get_mut(&payload.user_id) {
             order_ids.remove(&payload.order_id);
             if order_ids.is_empty() {
@@ -502,11 +537,10 @@ impl Market {
         }
     }
 
+    // ---- CLOSE ALL ORDERS FOR A USER: ITERATE AND REMOVE EACH FROM EVERY DATA STRUCTURE ----
     pub fn close_all(&mut self, payload: CloseAllPayload) -> CloseAllResponse {
-        // get all order_ids for this user
         if let Some(order_ids) = self.user_orders.remove(&payload.user_id) {
             for order_id in order_ids {
-                // remove from buy side if present
                 if let Some((price, _, _)) = self.buy_order_lookup.remove(&order_id) {
                     if let Some(orders) = self.buy_order.get_mut(&Reverse(price)) {
                         orders.retain(|o| o.order_id != order_id);
@@ -515,7 +549,6 @@ impl Market {
                         }
                     }
                 }
-                // remove from sell side if present
                 if let Some((price, _, _)) = self.sell_order_lookup.remove(&order_id) {
                     if let Some(orders) = self.sell_order.get_mut(&price) {
                         orders.retain(|o| o.order_id != order_id);
@@ -532,10 +565,13 @@ impl Market {
         }
     }
 
+    // ---- MARKET ORDER: IMMEDIATELY FILL AT BEST AVAILABLE PRICES, NO BOOK PLACEMENT ----
+    // LOOPS THROUGH PRICE LEVELS UNTIL FULLY FILLED OR LIQUIDITY EXHAUSTED
     pub fn market(&mut self, payload: MarketPayload) -> MarketResponse {
         let mut remaining_quantity = payload.quantity;
 
         if payload.side == 1.0 {
+            // BUY MARKET: CONSUME FROM THE CHEAPEST SELL ORDERS
             while remaining_quantity > Decimal::ZERO {
                 if let Some((price, orders)) = self.sell_order.pop_first() {
                     self.last_price = price;
@@ -545,6 +581,7 @@ impl Market {
                     }
 
                     if total_at_price > remaining_quantity {
+                        // MORE SELLERS AT THIS PRICE THAN WE NEED -> PARTIAL FILL, PUT REST BACK
                         let mut new_orders = Vec::new();
                         for mut o in orders {
                             let qty = Decimal::from_f64_retain(o.quantity).unwrap();
@@ -565,6 +602,7 @@ impl Market {
                         }
                         break;
                     } else {
+                        // CONSUME ALL SELLERS AT THIS PRICE, CONTINUE TO NEXT LEVEL
                         for o in orders {
                             remaining_quantity -= Decimal::from_f64_retain(o.quantity).unwrap();
                             self.sell_order_lookup.remove(&o.order_id);
@@ -583,6 +621,7 @@ impl Market {
                 }
             }
         } else {
+            // SELL MARKET: CONSUME FROM THE HIGHEST-PRICED BUY ORDERS
             while remaining_quantity > Decimal::ZERO {
                 if let Some((Reverse(price), orders)) = self.buy_order.pop_last() {
                     self.last_price = price;
