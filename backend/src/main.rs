@@ -26,29 +26,47 @@ use handlers::signin::signin;
 use handlers::signup::signup;
 use handlers::transactions::fetch_transactions;
 use handlers::withdraw::withdraw;
-use handlers::ws::ws_handler;
+use handlers::ws::{WsManager, spawn_nats_subscribers, ws_handler};
 use middlewares::alt_auth_mw::alt_auth;
+
 pub type DbState = Arc<Client>;
 pub type RedisState = Arc<ConnectionManager>;
+
+/// Shared application state injected into every request handler and WebSocket session
 #[derive(Clone)]
 pub struct AppState {
     pub db: DbState,
     pub redis: RedisState,
     pub nats: async_nats::Client,
+    pub ws_manager: Arc<WsManager>,
 }
+
 #[tokio::main]
 async fn main() {
     println!("\n>> run redis and nats");
+
+    // ── Connect to external services ──────────────────────────────────
     let pg_client = connect_postgres()
         .await
         .expect("[CRITICAL]  Failed to connect to the PostgreSQL database server");
     let redis_cm = connect_redis().await.unwrap();
     let nats_cm = connect_nats().await.unwrap();
+
+    // ── WebSocket session manager ─────────────────────────────────────
+    let ws_manager = WsManager::new();
     let state = AppState {
         db: Arc::new(pg_client),
         redis: Arc::new(redis_cm),
         nats: nats_cm,
+        ws_manager: ws_manager.clone(),
     };
+
+    // ── Global NATS → WebSocket broadcast tasks ──────────────────────
+    spawn_nats_subscribers(&state);
+
+    // ── HTTP routes ──────────────────────────────────────────────────
+
+    // Protected routes (require JWT via Authorization header)
     let protected = Router::new()
         .route("/api/deposit", post(deposit))
         .route("/api/withdraw", post(withdraw))
@@ -60,6 +78,8 @@ async fn main() {
         .route("/api/transactions", post(fetch_transactions))
         .layer(middleware::from_fn(alt_auth))
         .with_state(state.clone());
+
+    // CORS configuration for the Next.js frontend at localhost:3000
     let cors = CorsLayer::new()
         .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
@@ -69,6 +89,8 @@ async fn main() {
         ])
         .expose_headers([SET_COOKIE])
         .allow_credentials(true);
+
+    // Public routes + WebSocket + protected routes
     let app: Router = Router::new()
         .route("/api/signup", post(signup))
         .route("/api/signin", post(signin))
@@ -76,6 +98,8 @@ async fn main() {
         .merge(protected)
         .layer(cors)
         .with_state(state);
+
+    // ── Start server ─────────────────────────────────────────────────
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5000").await.unwrap();
     eprintln!("\n>> server running on port 5000");
     axum::serve(listener, app).await.unwrap();

@@ -1,7 +1,11 @@
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+
 use axum::{
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         Query, State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     http::StatusCode,
     response::IntoResponse,
@@ -9,16 +13,18 @@ use axum::{
 use futures_util::{SinkExt, StreamExt};
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
+use tokio::sync::{RwLock, mpsc};
 
-use crate::middlewares::auth::Claims;
 use crate::AppState;
+use crate::middlewares::auth::Claims;
 
+/// Query params passed by the browser when connecting: ws://host/ws?token=xxx
 #[derive(Deserialize)]
 pub struct WsQuery {
-    token: Option<String>,
+    pub token: Option<String>,
 }
 
+/// Shape of the `live_price` event from the engine
 #[derive(Serialize, Deserialize)]
 pub struct LivePrice {
     pub symbol: String,
@@ -26,7 +32,8 @@ pub struct LivePrice {
     pub time: i64,
 }
 
-#[derive(Serialize, Deserialize)]
+/// Shape of the `order.filled` event from the engine
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OrderFilled {
     pub buy_order_id: Option<String>,
     pub sell_order_id: Option<String>,
@@ -35,6 +42,7 @@ pub struct OrderFilled {
     pub quantity: f64,
 }
 
+/// Wraps both event types and adds `event_type` discriminator during serialization
 #[derive(Serialize)]
 #[serde(tag = "event_type")]
 pub enum WsEvent {
@@ -42,15 +50,138 @@ pub enum WsEvent {
     OrderFilled(OrderFilled),
 }
 
+/// One connected browser session
+struct Session {
+    tx: mpsc::UnboundedSender<String>,
+    user_id: Option<String>,
+}
+
+/// Central registry of all active WebSocket sessions
+///
+/// Two maps:
+///   `sessions` — conn_id → Session  (all connections)
+///   `by_user`  — user_id → Vec<conn_id>  (fast look-up for unicast)
+pub struct WsManager {
+    sessions: RwLock<HashMap<u64, Session>>,
+    by_user: RwLock<HashMap<String, Vec<u64>>>,
+    next_id: AtomicU64,
+}
+
+impl WsManager {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            sessions: RwLock::new(HashMap::new()),
+            by_user: RwLock::new(HashMap::new()),
+            next_id: AtomicU64::new(1),
+        })
+    }
+
+    /// Register a new WebSocket session and return its unique ID
+    pub async fn register(&self, tx: mpsc::UnboundedSender<String>, user_id: Option<String>) -> u64 {
+        let id = self.next_id.fetch_add(1, Ordering::SeqCst);
+        self.sessions.write().await.insert(id, Session {
+            tx,
+            user_id: user_id.clone(),
+        });
+        if let Some(uid) = user_id {
+            self.by_user.write().await.entry(uid).or_default().push(id);
+        }
+        id
+    }
+
+    /// Remove a session on disconnect; cleans up both maps
+    pub async fn unregister(&self, id: u64) {
+        if let Some(session) = self.sessions.write().await.remove(&id) {
+            if let Some(uid) = session.user_id {
+                let mut by_user = self.by_user.write().await;
+                if let Some(ids) = by_user.get_mut(&uid) {
+                    ids.retain(|&i| i != id);
+                    if ids.is_empty() {
+                        by_user.remove(&uid);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Send a message to every connected client
+    pub async fn broadcast(&self, msg: &str) {
+        let sessions = self.sessions.read().await;
+        for session in sessions.values() {
+            let _ = session.tx.send(msg.to_string());
+        }
+    }
+
+    /// Send a message only to sessions belonging to a specific user
+    pub async fn unicast(&self, user_id: &str, msg: &str) {
+        let by_user = self.by_user.read().await;
+        if let Some(ids) = by_user.get(user_id) {
+            let sessions = self.sessions.read().await;
+            for id in ids {
+                if let Some(session) = sessions.get(id) {
+                    let _ = session.tx.send(msg.to_string());
+                }
+            }
+        }
+    }
+}
+
+/// Spawn global NATS subscribers that forward events to WebSocket clients
+///
+/// Called once at startup. Two background tasks:
+/// - `live_price` → broadcast to every connected client
+/// - `order.filled` → unicast to the buyer and seller
+pub fn spawn_nats_subscribers(state: &AppState) {
+    let nats = state.nats.clone();
+    let wm = state.ws_manager.clone();
+    tokio::spawn(async move {
+        let mut sub = match nats.subscribe("live_price").await {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        while let Some(msg) = sub.next().await {
+            if let Ok(price) = serde_json::from_slice::<LivePrice>(&msg.payload) {
+                if let Ok(json) = serde_json::to_string(&WsEvent::LivePrice(price)) {
+                    wm.broadcast(&json).await;
+                }
+            }
+        }
+    });
+
+    {
+        let nats = state.nats.clone();
+        let wm = state.ws_manager.clone();
+        tokio::spawn(async move {
+            let mut sub = match nats.subscribe("order.filled").await {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            while let Some(msg) = sub.next().await {
+                if let Ok(fill) = serde_json::from_slice::<OrderFilled>(&msg.payload) {
+                    if let Ok(json) = serde_json::to_string(&WsEvent::OrderFilled(fill.clone())) {
+                        if let Some(uid) = &fill.buy_user_id {
+                            wm.unicast(uid, &json).await;
+                        }
+                        if let Some(uid) = &fill.sell_user_id {
+                            wm.unicast(uid, &json).await;
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+/// Handle the HTTP → WebSocket upgrade handshake
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
     Query(query): Query<WsQuery>,
 ) -> impl IntoResponse {
+    // Validate JWT if token was provided (optional auth)
     let user_id = match &query.token {
         Some(token) => {
-            let jwt_secret =
-                std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
+            let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
             match decode::<Claims>(
                 token,
                 &DecodingKey::from_secret(jwt_secret.as_bytes()),
@@ -68,53 +199,24 @@ pub async fn ws_handler(
     ws.on_upgrade(move |socket| handle_socket(socket, state, user_id))
 }
 
+/// Per-connection loop: reads from the session's channel and forwards to WebSocket,
+/// while also handling ping/pong/close from the browser
 async fn handle_socket(socket: WebSocket, state: AppState, user_id: Option<String>) {
     let (mut ws_tx, mut ws_rx) = socket.split();
-    let (event_tx, mut event_rx) = mpsc::unbounded_channel::<WsEvent>(); // putting nats payload into this event.
+    let (event_tx, mut event_rx) = mpsc::unbounded_channel::<String>();
 
-    let nats = state.nats.clone();
-    let tx1 = event_tx.clone();
-    tokio::spawn(async move {
-        let mut sub = match nats.subscribe("live_price").await {
-            Ok(s) => s,
-            Err(_) => return,
-        };
-        while let Some(msg) = sub.next().await {
-            if let Ok(price) = serde_json::from_slice::<LivePrice>(&msg.payload) {
-                if tx1.send(WsEvent::LivePrice(price)).is_err() {
-                    break;
-                }
-            }
-        }
-    });
-
-    if let Some(_uid) = user_id {
-        let nats2 = state.nats.clone();
-        let tx2 = event_tx.clone();
-        tokio::spawn(async move {
-            let mut sub = match nats2.subscribe("order.filled").await {
-                Ok(s) => s,
-                Err(_) => return,
-            };
-            while let Some(msg) = sub.next().await {
-                if let Ok(fill) = serde_json::from_slice::<OrderFilled>(&msg.payload) {
-                    if tx2.send(WsEvent::OrderFilled(fill)).is_err() {
-                        break;
-                    }
-                }
-            }
-        });
-    }
+    // Register this connection so global NATS tasks can reach it
+    let conn_id = state.ws_manager.register(event_tx, user_id).await;
 
     loop {
         tokio::select! {
-            Some(event) = event_rx.recv() => {
-                if let Ok(json) = serde_json::to_string(&event) {
-                    if ws_tx.send(Message::Text(json.into())).await.is_err() {
-                        break;
-                    }
+            // Incoming message from a global NATS subscriber (via WsManager)
+            Some(msg) = event_rx.recv() => {
+                if ws_tx.send(Message::Text(msg.into())).await.is_err() {
+                    break;
                 }
             }
+            // Incoming message from the browser
             Some(msg) = ws_rx.next() => {
                 match msg {
                     Ok(Message::Ping(data)) => {
@@ -129,4 +231,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: Option<Strin
             }
         }
     }
+
+    // Clean up on disconnect
+    state.ws_manager.unregister(conn_id).await;
 }
