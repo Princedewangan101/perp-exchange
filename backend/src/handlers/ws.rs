@@ -8,7 +8,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use jsonwebtoken::{DecodingKey, Validation, decode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
 use crate::middlewares::auth::Claims;
@@ -17,6 +17,29 @@ use crate::AppState;
 #[derive(Deserialize)]
 pub struct WsQuery {
     token: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LivePrice {
+    pub symbol: String,
+    pub price: f64,
+    pub time: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct OrderFilled {
+    pub buy_order_id: Option<String>,
+    pub sell_order_id: Option<String>,
+    pub buy_user_id: Option<String>,
+    pub sell_user_id: Option<String>,
+    pub quantity: f64,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "event_type")]
+pub enum WsEvent {
+    LivePrice(LivePrice),
+    OrderFilled(OrderFilled),
 }
 
 pub async fn ws_handler(
@@ -46,8 +69,8 @@ pub async fn ws_handler(
 }
 
 async fn handle_socket(socket: WebSocket, state: AppState, user_id: Option<String>) {
-    let (mut tx, mut rx) = socket.split();
-    let (event_tx, mut event_rx) = mpsc::unbounded_channel::<String>();
+    let (mut ws_tx, mut ws_rx) = socket.split();
+    let (event_tx, mut event_rx) = mpsc::unbounded_channel::<WsEvent>(); // putting nats payload into this event.
 
     let nats = state.nats.clone();
     let tx1 = event_tx.clone();
@@ -57,11 +80,10 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: Option<Strin
             Err(_) => return,
         };
         while let Some(msg) = sub.next().await {
-            if tx1
-                .send(String::from_utf8_lossy(&msg.payload).to_string())
-                .is_err()
-            {
-                break;
+            if let Ok(price) = serde_json::from_slice::<LivePrice>(&msg.payload) {
+                if tx1.send(WsEvent::LivePrice(price)).is_err() {
+                    break;
+                }
             }
         }
     });
@@ -75,11 +97,10 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: Option<Strin
                 Err(_) => return,
             };
             while let Some(msg) = sub.next().await {
-                if tx2
-                    .send(String::from_utf8_lossy(&msg.payload).to_string())
-                    .is_err()
-                {
-                    break;
+                if let Ok(fill) = serde_json::from_slice::<OrderFilled>(&msg.payload) {
+                    if tx2.send(WsEvent::OrderFilled(fill)).is_err() {
+                        break;
+                    }
                 }
             }
         });
@@ -88,14 +109,16 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: Option<Strin
     loop {
         tokio::select! {
             Some(event) = event_rx.recv() => {
-                if tx.send(Message::Text(event.into())).await.is_err() {
-                    break;
+                if let Ok(json) = serde_json::to_string(&event) {
+                    if ws_tx.send(Message::Text(json.into())).await.is_err() {
+                        break;
+                    }
                 }
             }
-            Some(msg) = rx.next() => {
+            Some(msg) = ws_rx.next() => {
                 match msg {
                     Ok(Message::Ping(data)) => {
-                        if tx.send(Message::Pong(data)).await.is_err() {
+                        if ws_tx.send(Message::Pong(data)).await.is_err() {
                             break;
                         }
                     }
