@@ -4,6 +4,7 @@ use prost::Message;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
+mod mock_order;
 mod order_book;
 mod proto;
 use order_book::Market;
