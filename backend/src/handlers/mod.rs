@@ -8,3 +8,4 @@ pub mod signin;
 pub mod signup;
 pub mod transactions;
 pub mod withdraw;
+pub mod ws;

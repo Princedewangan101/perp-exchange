@@ -26,6 +26,7 @@ use handlers::signin::signin;
 use handlers::signup::signup;
 use handlers::transactions::fetch_transactions;
 use handlers::withdraw::withdraw;
+use handlers::ws::ws_handler;
 use middlewares::alt_auth_mw::alt_auth;
 pub type DbState = Arc<Client>;
 pub type RedisState = Arc<ConnectionManager>;
@@ -71,6 +72,7 @@ async fn main() {
     let app: Router = Router::new()
         .route("/api/signup", post(signup))
         .route("/api/signin", post(signin))
+        .route("/ws", get(ws_handler))
         .merge(protected)
         .layer(cors)
         .with_state(state);
