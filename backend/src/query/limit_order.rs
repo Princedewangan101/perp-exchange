@@ -113,6 +113,8 @@ pub async fn limit_order(postgres_client: &Client, req: LimitOrderRequest) -> Li
     match result {
         Ok(row) => {
             let order_id: i32 = row.get("orderId");
+            println!("\n> [LIMIT_ORDER_DB]: order_id:{order_id}, symbol:{}, quantity:{}, side:{}, type:{}, leverage:{}, tp:{}, sl:{}, open:{}",
+                req.symbol, req.quantity, req.side, req.order_type, req.leverage, req.tp, req.sl, req.open);
             LimitOrderResponse {
                 success: true,
                 order_id: Some(order_id.to_string()),

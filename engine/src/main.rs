@@ -67,9 +67,12 @@ async fn engine() {
                     Ok(v) => v,
                     Err(_) => continue,
                 };
+                println!("\n> [LIMIT_ORDER_ENGINE_RECV]: order_id:{}, user_id:{}, symbol:{}, quantity:{}, side:{}, price:{}, tp:{:?}, sl:{:?}",
+                    payload.order_id, payload.user_id, payload.symbol, payload.quantity, payload.side, payload.price, payload.tp, payload.sl);
                 let market = markets
                     .entry(payload.symbol.clone())
                     .or_insert_with(|| Market::new(payload.symbol.clone()));
+                let order_id = payload.order_id.clone();
                 let result = market.add_limit_order(order_book::LimitOrderEventPayload {
                     user_id: payload.user_id,
                     order_id: payload.order_id,
@@ -91,6 +94,8 @@ async fn engine() {
                         remaining_quantity: resp.remaining_quantity,
                     },
                 };
+                println!("\n> [LIMIT_ORDER_ENGINE_REPLY]: success:{}, message:{}, order_id:{}, remaining_quantity:{:?}",
+                    reply.success, reply.message, order_id, reply.remaining_quantity);
                 let mut buf = Vec::new();
                 if reply.encode(&mut buf).is_ok() {
                     if let Some(reply_subject) = message.reply {

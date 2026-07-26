@@ -234,6 +234,8 @@ impl Market {
         &mut self,
         payload: LimitOrderEventPayload,
     ) -> Result<AddLimitOrderResponse, AddLimitOrderResponse> {
+        println!("\n> [LIMIT_ORDER_BOOK]: order_id:{}, user_id:{}, side:{}, quantity:{}, price:{}, tp:{}, sl:{}",
+            payload.order_id, payload.user_id, payload.side, payload.quantity, payload.price, payload.tp, payload.sl);
         let price = Decimal::from_f64_retain(payload.price).unwrap();
 
         if payload.side == 1 {
