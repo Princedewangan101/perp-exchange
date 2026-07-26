@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use futures::{StreamExt, stream::select};
+use futures::StreamExt;
 use prost::Message;
 use rust_decimal::Decimal;
 use serde::Deserialize;
@@ -8,20 +8,9 @@ mod mock_order;
 mod order_book;
 mod proto;
 use order_book::Market;
-use proto::{LimitOrderPayload, LimitOrderResult};
+use proto::{LimitOrderPayload, LimitOrderResult, OrderRequest};
 
 // ---- JSON PAYLOADS FOR order.* SUBJECTS ----
-#[derive(Deserialize)]
-struct MarketPayload {
-    order_id: String,
-    user_id: String,
-    symbol: String,
-    quantity: f64,
-    side: f64,
-    tp: Option<f64>,
-    sl: Option<f64>,
-}
-
 #[derive(Deserialize)]
 struct ModifyPayload {
     symbol: String,
@@ -55,8 +44,7 @@ async fn engine() {
     let mut markets: HashMap<String, Market> = HashMap::new();
 
     let sub1 = nats.subscribe("order.*").await.unwrap();
-    let sub2 = nats.subscribe("MARKET_ORDER").await.unwrap();
-    let mut merged = select(sub1, sub2);
+    let mut merged = sub1;
 
     while let Some(message) = merged.next().await {
         let subject = message.subject.as_str();
@@ -104,25 +92,33 @@ async fn engine() {
                 }
             }
             "order.market" => {
-                let payload_str = match std::str::from_utf8(&message.payload[..]) {
-                    Ok(s) => s,
-                    Err(_) => continue,
-                };
-                let json: MarketPayload = match serde_json::from_str(payload_str) {
-                    Ok(v) => v,
+                let req = match proto::OrderRequest::decode(&message.payload[..]) {
+                    Ok(r) => r,
                     Err(_) => continue,
                 };
                 let market = markets
-                    .entry(json.symbol.clone())
-                    .or_insert_with(|| Market::new(json.symbol.clone()));
-                market.market(order_book::MarketPayload {
-                    user_id: json.user_id,
-                    order_id: json.order_id,
-                    quantity: Decimal::from_f64_retain(json.quantity).unwrap_or(Decimal::ZERO),
-                    tp: Decimal::from_f64_retain(json.tp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO),
-                    sl: Decimal::from_f64_retain(json.sl.unwrap_or(0.0)).unwrap_or(Decimal::ZERO),
-                    side: json.side,
+                    .entry(req.symbol.clone())
+                    .or_insert_with(|| Market::new(req.symbol.clone()));
+                let resp = market.market(order_book::MarketPayload {
+                    user_id: req.user_id,
+                    order_id: String::new(),
+                    quantity: Decimal::from_f64_retain(req.quantity).unwrap_or(Decimal::ZERO),
+                    tp: Decimal::ZERO,
+                    sl: Decimal::ZERO,
+                    side: req.side as f64,
                 });
+                println!("\n> [MARKET_ORDER_ENGINE_REPLY]: success:{}, message:{}, price:{}, order_id:{}",
+                    resp.success, resp.message, resp.price, resp.order_id);
+                let reply = proto::OrderResponse {
+                    message: resp.message,
+                    quantity: resp.price.to_f64().unwrap_or(0.0),
+                };
+                let mut buf = Vec::new();
+                if reply.encode(&mut buf).is_ok() {
+                    if let Some(reply_subject) = message.reply {
+                        let _ = nats.publish(reply_subject, buf.into()).await;
+                    }
+                }
             }
             "order.modify" => {
                 let payload_str = match std::str::from_utf8(&message.payload[..]) {
@@ -177,33 +173,6 @@ async fn engine() {
                     market.close_all(order_book::CloseAllPayload {
                         user_id: json.user_id.clone(),
                     });
-                }
-            }
-            "MARKET_ORDER" => {
-                let req = match proto::OrderRequest::decode(&message.payload[..]) {
-                    Ok(r) => r,
-                    Err(_) => continue,
-                };
-                let market = markets
-                    .entry(req.symbol.clone())
-                    .or_insert_with(|| Market::new(req.symbol.clone()));
-                let resp = market.market(order_book::MarketPayload {
-                    user_id: req.user_id,
-                    order_id: String::new(),
-                    quantity: Decimal::from_f64_retain(req.quantity).unwrap_or(Decimal::ZERO),
-                    tp: Decimal::ZERO,
-                    sl: Decimal::ZERO,
-                    side: req.side as f64,
-                });
-                let reply = proto::OrderResponse {
-                    message: resp.message,
-                    quantity: 0.0,
-                };
-                let mut buf = Vec::new();
-                if reply.encode(&mut buf).is_ok() {
-                    if let Some(reply_subject) = message.reply {
-                        let _ = nats.publish(reply_subject, buf.into()).await;
-                    }
                 }
             }
             _ => {

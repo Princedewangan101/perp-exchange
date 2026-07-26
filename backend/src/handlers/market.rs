@@ -95,7 +95,7 @@ pub async fn market(
         );
     }
 
-    match state.nats.request("MARKET_ORDER", req_buffer.into()).await {
+    match state.nats.request("order.market", req_buffer.into()).await {
         Ok(reply_message) => match proto::OrderResponse::decode(reply_message.payload) {
             Ok(proto_res) => {
                 return (
