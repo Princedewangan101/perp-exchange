@@ -7,7 +7,7 @@ use axum::{
 use redis::aio::ConnectionManager;
 use std::sync::Arc;
 use tokio_postgres::Client;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{CorsLayer};
 mod config;
 mod handlers;
 mod middlewares;

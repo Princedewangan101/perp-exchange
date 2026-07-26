@@ -3,7 +3,7 @@ use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use prost::Message;
 use serde::{Deserialize, Serialize};
 
-use crate::proto;
+use crate::proto::{LimitOrderPayload, LimitOrderResult};
 use crate::query::limit_order::{LimitOrderRequest, LimitOrderResponse, limit_order};
 
 #[derive(Deserialize)]
@@ -36,18 +36,7 @@ pub struct MarketResponse {
     pub success: bool,
     pub message: String,
     pub order_id: Option<String>,
-}
-
-#[derive(Serialize)]
-struct OrderEventPayload {
-    order_id: String,
-    user_id: String,
-    symbol: String,
-    quantity: f64,
-    side: u32,
-    order_type: String,
-    leverage: u32,
-    price: f64,
+    pub remaining_quantity: Option<f64>,
 }
 
 pub async fn limit(
@@ -69,6 +58,7 @@ pub async fn limit(
                 success: false,
                 message: "missing required field".to_string(),
                 order_id: None,
+                remaining_quantity: None,
             }),
         );
     }
@@ -117,39 +107,79 @@ pub async fn limit(
                     success: false,
                     message: "failed to process order".to_string(),
                     order_id: None,
+                    remaining_quantity: None,
                 }),
             );
         }
     };
 
 
-    let event_payload = OrderEventPayload {
+    let event_payload = LimitOrderPayload {
         order_id: order_id.clone(),
         user_id: user.0.clone(),
         symbol: req.order.symbol.clone(),
         quantity: req.order.quantity,
         side: req.order.side,
-        order_type: req.order.order_type.clone(),
-        leverage: req.order.leverage,
         price: req.order.price,
+        tp: req.edge.tp,
+        sl: req.edge.sl,
     };
-    
-    // ENQUEUE
-    if let Ok(bytes) = serde_json::to_vec(&event_payload) {
-        if let Err(e) = state.nats.publish("order.limit", bytes.into()).await {
-            eprintln!("\n[ERROR] Failed to publish event to NATS: {:?}", e);
+
+    let mut buf = Vec::new();
+    if let Ok(()) = event_payload.encode(&mut buf) {
+        match state.nats.request("order.limit", buf.into()).await {
+            Ok(reply_msg) => {
+                match LimitOrderResult::decode(&reply_msg.payload[..]) {
+                    Ok(reply) => {
+                        println!("\n> [LIMIT_ORDER_RESPONSE]: success:{}, message:{}, order_id:{}, remaining_quantity:{:?}",
+                            reply.success, reply.message, order_id, reply.remaining_quantity);
+                        return (
+                            StatusCode::OK,
+                            Json(MarketResponse {
+                                success: reply.success,
+                                message: format!("{}, remaining: {:?}", reply.message, reply.remaining_quantity),
+                                order_id: Some(order_id),
+                                remaining_quantity: reply.remaining_quantity,
+                            }),
+                        );
+                    }
+                    Err(_) => {
+                        eprintln!("\n[ERROR] Failed to decode engine reply for order.limit");
+                        return (
+                            StatusCode::OK,
+                            Json(MarketResponse {
+                                success: true,
+                                message: "order placed, but failed to decode engine reply".to_string(),
+                                order_id: Some(order_id),
+                                remaining_quantity: None,
+                            }),
+                        );
+                    }
+                }
+            }
+            Err(_) => {
+                eprintln!("\n[ERROR] NATS request timeout for order.limit");
+                return (
+                    StatusCode::GATEWAY_TIMEOUT,
+                    Json(MarketResponse {
+                        success: false,
+                        message: "matching engine timeout".to_string(),
+                        order_id: None,
+                        remaining_quantity: None,
+                    }),
+                );
+            }
         }
     } else {
-        eprintln!("\n[ERROR] Failed to serialize order evemt payload")
+        eprintln!("\n[ERROR] Failed to encode limit order payload");
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(MarketResponse {
+                success: false,
+                message: "payload encoding error".to_string(),
+                order_id: None,
+                remaining_quantity: None,
+            }),
+        );
     }
-
-    println!("\n> [LIMIT_ORDER_RESPONSE]: success:true, message:order in pending, order_id:{}",order_id );
-    return (
-        StatusCode::OK,
-        Json(MarketResponse {
-            success: true,
-            message: "order in pending".to_string(),
-            order_id: Some(order_id),
-        }),
-    );
 }

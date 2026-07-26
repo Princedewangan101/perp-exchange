@@ -13,9 +13,6 @@ pub struct LimitOrderEventPayload {
     pub order_id: String,
     pub side: u32,             // 1 = BUY, 2 = SELL
     pub quantity: f64,
-    pub symbol: String,
-    pub order_type: String,
-    pub leverage: u32,
     pub price: f64,
     pub tp: f64,               // TAKE PROFIT LEVEL
     pub sl: f64,               // STOP LOSS LEVEL
@@ -24,9 +21,9 @@ pub struct LimitOrderEventPayload {
 // ---- RESPONSE AFTER ADDING A LIMIT ORDER ----
 #[derive(Deserialize)]
 pub struct AddLimitOrderResponse {
-    success: bool,
-    message: String,
-    remaining_quantity: Option<f64>,   // SOME IF ORDER PARTIALLY FILLED
+    pub success: bool,
+    pub message: String,
+    pub remaining_quantity: Option<f64>,   // SOME IF ORDER PARTIALLY FILLED
 }
 
 // ---- PAYLOAD TO MODIFY TP/SL OF AN EXISTING ORDER ----
@@ -92,7 +89,7 @@ type Price = Decimal;
 type Tp = Decimal;
 type Sl = Decimal;
 
-// ---- MARKET STATE FOR ONE TRADING SYMBOL (e.g. BTC) ----
+// ---- MARKET STATE FOR ONE TRADING SYaMBOL (e.g. BTC) ----
 pub struct Market {
     pub symbol: String,
     pub last_price: Decimal,                                            // LAST TRADED PRICE, UPDATED AFTER EVERY FILL

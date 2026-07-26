@@ -8,22 +8,9 @@ mod mock_order;
 mod order_book;
 mod proto;
 use order_book::Market;
+use proto::{LimitOrderPayload, LimitOrderResult};
 
 // ---- JSON PAYLOADS FOR order.* SUBJECTS ----
-#[derive(Deserialize)]
-struct LimitPayload {
-    order_id: String,
-    user_id: String,
-    symbol: String,
-    quantity: f64,
-    side: u32,
-    order_type: String,
-    leverage: u32,
-    price: f64,
-    tp: Option<f64>,
-    sl: Option<f64>,
-}
-
 #[derive(Deserialize)]
 struct MarketPayload {
     order_id: String,
@@ -76,29 +63,40 @@ async fn engine() {
 
         match subject {
             "order.limit" => {
-                let payload_str = match std::str::from_utf8(&message.payload[..]) {
-                    Ok(s) => s,
-                    Err(_) => continue,
-                };
-                let json: LimitPayload = match serde_json::from_str(payload_str) {
+                let payload = match LimitOrderPayload::decode(&message.payload[..]) {
                     Ok(v) => v,
                     Err(_) => continue,
                 };
                 let market = markets
-                    .entry(json.symbol.clone())
-                    .or_insert_with(|| Market::new(json.symbol.clone()));
-                let _ = market.add_limit_order(order_book::LimitOrderEventPayload {
-                    user_id: json.user_id,
-                    order_id: json.order_id,
-                    side: json.side,
-                    quantity: json.quantity,
-                    symbol: json.symbol,
-                    order_type: json.order_type,
-                    leverage: json.leverage,
-                    price: json.price,
-                    tp: json.tp.unwrap_or(0.0),
-                    sl: json.sl.unwrap_or(0.0),
+                    .entry(payload.symbol.clone())
+                    .or_insert_with(|| Market::new(payload.symbol.clone()));
+                let result = market.add_limit_order(order_book::LimitOrderEventPayload {
+                    user_id: payload.user_id,
+                    order_id: payload.order_id,
+                    side: payload.side,
+                    quantity: payload.quantity,
+                    price: payload.price,
+                    tp: payload.tp.unwrap_or(0.0),
+                    sl: payload.sl.unwrap_or(0.0),
                 });
+                let reply = match &result {
+                    Ok(resp) => LimitOrderResult {
+                        success: true,
+                        message: resp.message.clone(),
+                        remaining_quantity: resp.remaining_quantity,
+                    },
+                    Err(resp) => LimitOrderResult {
+                        success: false,
+                        message: resp.message.clone(),
+                        remaining_quantity: resp.remaining_quantity,
+                    },
+                };
+                let mut buf = Vec::new();
+                if reply.encode(&mut buf).is_ok() {
+                    if let Some(reply_subject) = message.reply {
+                        let _ = nats.publish(reply_subject, buf.into()).await;
+                    }
+                }
             }
             "order.market" => {
                 let payload_str = match std::str::from_utf8(&message.payload[..]) {
