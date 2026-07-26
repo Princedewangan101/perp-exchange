@@ -3,7 +3,7 @@ use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use prost::Message;
 use serde::{Deserialize, Serialize};
 
-use crate::proto::{LimitOrderPayload, LimitOrderResult};
+use crate::proto;
 use crate::query::limit_order::{LimitOrderRequest, LimitOrderResponse, limit_order};
 
 #[derive(Deserialize)]
@@ -37,6 +37,20 @@ pub struct MarketResponse {
     pub message: String,
     pub order_id: Option<String>,
     pub remaining_quantity: Option<f64>,
+}
+
+#[derive(Serialize)]
+struct OrderEventPayload {
+    order_id: String,
+    user_id: String,
+    symbol: String,
+    quantity: f64,
+    side: u32,
+    order_type: String,
+    leverage: u32,
+    price: f64,
+    tp: Option<f64>,
+    sl: Option<f64>,
 }
 
 pub async fn limit(
@@ -114,32 +128,36 @@ pub async fn limit(
     };
 
 
-    let event_payload = LimitOrderPayload {
+    let event_payload = OrderEventPayload {
         order_id: order_id.clone(),
         user_id: user.0.clone(),
         symbol: req.order.symbol.clone(),
         quantity: req.order.quantity,
         side: req.order.side,
+        order_type: req.order.order_type.clone(),
+        leverage: req.order.leverage,
         price: req.order.price,
-        tp: req.edge.tp,
-        sl: req.edge.sl,
+        tp: req.edge.tp.unwrap_or(0.0),
+        sl: req.edge.sl.unwrap_or(0.0),
     };
-
-    let mut buf = Vec::new();
-    if let Ok(()) = event_payload.encode(&mut buf) {
-        match state.nats.request("order.limit", buf.into()).await {
+    
+    // ENQUEUE
+    if let Ok(bytes) = serde_json::to_vec(&event_payload) {
+        match state.nats.request("order.limit", bytes.into()).await {
             Ok(reply_msg) => {
-                match LimitOrderResult::decode(&reply_msg.payload[..]) {
+                match serde_json::from_slice::<serde_json::Value>(&reply_msg.payload) {
                     Ok(reply) => {
-                        println!("\n> [LIMIT_ORDER_RESPONSE]: success:{}, message:{}, order_id:{}, remaining_quantity:{:?}",
-                            reply.success, reply.message, order_id, reply.remaining_quantity);
+                        let success = reply.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+                        let message = reply.get("message").and_then(|v| v.as_str()).unwrap_or("unknown");
+                        let remaining = reply.get("remaining_quantity").and_then(|v| v.as_f64());
+                        println!("\n> [LIMIT_ORDER_RESPONSE]: success:{success}, message:{message}, order_id:{order_id}, remaining_quantity:{remaining:?}");
                         return (
                             StatusCode::OK,
                             Json(MarketResponse {
-                                success: reply.success,
-                                message: format!("{}, remaining: {:?}", reply.message, reply.remaining_quantity),
+                                success,
+                                message: format!("{}, remaining: {:?}", message, remaining),
                                 order_id: Some(order_id),
-                                remaining_quantity: reply.remaining_quantity,
+                                remaining_quantity: remaining,
                             }),
                         );
                     }
@@ -171,12 +189,12 @@ pub async fn limit(
             }
         }
     } else {
-        eprintln!("\n[ERROR] Failed to encode limit order payload");
+        eprintln!("\n[ERROR] Failed to serialize order event payload");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(MarketResponse {
                 success: false,
-                message: "payload encoding error".to_string(),
+                message: "serialization error".to_string(),
                 order_id: None,
                 remaining_quantity: None,
             }),
