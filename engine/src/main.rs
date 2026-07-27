@@ -101,7 +101,7 @@ async fn engine() {
                     .or_insert_with(|| Market::new(req.symbol.clone()));
                 let resp = market.market(order_book::MarketPayload {
                     user_id: req.user_id,
-                    order_id: String::new(),
+                    order_id: req.order_id,
                     quantity: Decimal::from_f64_retain(req.quantity).unwrap_or(Decimal::ZERO),
                     tp: Decimal::ZERO,
                     sl: Decimal::ZERO,

@@ -7,6 +7,7 @@ pub mod fetch_transactions;
 pub mod find_user;
 pub mod is_user_exist;
 pub mod limit_order;
+pub mod market_order;
 pub mod modify_order;
 pub mod update_balance;
 pub mod withdraw_balance;

@@ -12,6 +12,8 @@ pub struct OrderRequest {
     pub side: u32,
     #[prost(string, tag = "5")]
     pub order_type: String,
+    #[prost(string, tag = "6")]
+    pub order_id: String,
 }
 
 #[derive(Clone, PartialEq, Message)]
