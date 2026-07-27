@@ -1,6 +1,7 @@
 use rust_decimal::Decimal;
 use serde::Serialize;
 use tokio_postgres::Client;
+use uuid::Uuid;
 
 use crate::query::common::log_db_error;
 
@@ -17,7 +18,7 @@ pub struct UpdateBalanceResponse {
 }
 
 pub async fn update_balance(postgres_client: &Client, req: UpdateBalanceRequest) -> UpdateBalanceResponse {
-    let order_id: i32 = match req.order_id.parse() {
+    let order_id: Uuid = match Uuid::parse_str(&req.order_id) {
         Ok(id) => id,
         Err(_) => {
             return UpdateBalanceResponse {

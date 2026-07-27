@@ -1,5 +1,6 @@
 use rust_decimal::Decimal;
 use tokio_postgres::Client;
+use uuid::Uuid;
 
 use crate::query::common::log_db_error;
 
@@ -19,7 +20,7 @@ pub async fn close_order(postgres_client: &Client, req: CloseOrderRequest) -> Cl
         Ok(id) => id,
         Err(_) => return CloseOrderResponse { success: false },
     };
-    let order_id: i32 = match req.order_id.parse() {
+    let order_id: Uuid = match Uuid::parse_str(&req.order_id) {
         Ok(id) => id,
         Err(_) => return CloseOrderResponse { success: false },
     };

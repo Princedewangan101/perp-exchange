@@ -9,7 +9,7 @@ pub struct FetchOrdersRequest {
 
 #[derive(Serialize)]
 pub struct Order {
-    pub order_id: i32,
+    pub order_id: String,
     pub symbol: String,
     pub quantity: f64,
     pub side: u32,
@@ -45,7 +45,7 @@ pub async fn fetch_orders_from_db(postgres_client: &Client, req: FetchOrdersRequ
     };
     let result = postgres_client
         .query(
-            "SELECT orderId, symbol, quantity::double precision, side::int2, type, status, tp::double precision, sl::double precision, open::double precision, close::double precision, closeType, pnl::double precision, created_at::text, updated_at::text FROM orders WHERE userId = $1",
+            "SELECT orderId::text, symbol, quantity::double precision, side::int2, type, status, tp::double precision, sl::double precision, open::double precision, close::double precision, closeType, pnl::double precision, created_at::text, updated_at::text FROM orders WHERE userId = $1",
             &[&user_id],
         )
         .await;

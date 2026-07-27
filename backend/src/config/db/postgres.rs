@@ -35,8 +35,8 @@ pub async fn connect_postgres() -> Result<Client, Error> {
              updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
          );
 
-          CREATE TABLE IF NOT EXISTS orders (
-             orderId SERIAL PRIMARY KEY,
+           CREATE TABLE IF NOT EXISTS orders (
+              orderId UUID PRIMARY KEY,
              userId INT NOT NULL REFERENCES users(userId) ON DELETE CASCADE,
              symbol VARCHAR(10) NOT NULL,
              quantity NUMERIC(4,2) NOT NULL,
@@ -56,7 +56,7 @@ pub async fn connect_postgres() -> Result<Client, Error> {
           CREATE TABLE IF NOT EXISTS transactions (
              transactionId SERIAL PRIMARY KEY,
              userId INT NOT NULL REFERENCES users(userId) ON DELETE CASCADE,
-             orderId INT REFERENCES orders(orderId) ON DELETE CASCADE,
+              orderId UUID REFERENCES orders(orderId) ON DELETE CASCADE,
              balance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
              type VARCHAR(8) NOT NULL,
              created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

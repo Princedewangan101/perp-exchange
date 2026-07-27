@@ -1,10 +1,11 @@
+use uuid::Uuid;
 use crate::{AppState, middlewares::auth::AuthenticatedUser};
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use prost::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::proto::{LimitOrderPayload, LimitOrderResult};
-use crate::query::limit_order::{LimitOrderRequest, LimitOrderResponse, limit_order};
+use crate::query::limit_order::{LimitOrderRequest, limit_order};
 
 #[derive(Deserialize)]
 pub struct OrderEvent {
@@ -63,8 +64,11 @@ pub async fn limit(
         );
     }
 
+    // GENERATE ORDER ID
+    let order_id = Uuid::new_v4().to_string();
+
     println!(
-        "\n\n\n> [LIMIT_ORDER] User: {}, Symbol: {}, Qty: {}, Side: {}, Type: {}, Status: pending, Leverage: {}, TP: {}, SL: {}, Price: {}",
+        "\n\n\n> [LIMIT_ORDER] order_id: {order_id}, User: {}, Symbol: {}, Qty: {}, Side: {}, Type: {}, Status: pending, Leverage: {}, TP: {}, SL: {}, Price: {}",
         user.0,
         req.order.symbol,
         req.order.quantity,
@@ -76,44 +80,7 @@ pub async fn limit(
         req.order.price
     );
 
-    // QUERY CALL
-    let response = limit_order(
-        &state.db,
-        LimitOrderRequest {
-            user_id: user.0.clone(),
-            symbol: req.order.symbol.clone(),
-            quantity: req.order.quantity,
-            side: req.order.side,
-            order_type: req.order.order_type.clone(),
-            status: "pending".to_string(),
-            leverage: req.order.leverage,
-            tp: req.edge.tp.unwrap_or(0.0),
-            sl: req.edge.sl.unwrap_or(0.0),
-            open: req.order.price,
-        },
-    )
-    .await;
-
-    // RESPONSE MATCHING
-    let order_id = match response {
-        LimitOrderResponse {
-            success: true,
-            order_id: Some(id),
-        } => id,
-        _ => {
-            return (
-                StatusCode::CONFLICT,
-                Json(MarketResponse {
-                    success: false,
-                    message: "failed to process order".to_string(),
-                    order_id: None,
-                    remaining_quantity: None,
-                }),
-            );
-        }
-    };
-
-
+    // SEND TO MATCHING ENGINE FIRST
     let event_payload = LimitOrderPayload {
         order_id: order_id.clone(),
         user_id: user.0.clone(),
@@ -129,51 +96,7 @@ pub async fn limit(
         user.0, req.order.symbol, req.order.quantity, req.order.side, req.order.price, req.edge.tp, req.edge.sl);
 
     let mut buf = Vec::new();
-    if event_payload.encode(&mut buf).is_ok() {
-        match state.nats.request("order.limit", buf.into()).await {
-            Ok(reply_msg) => {
-                match LimitOrderResult::decode(&reply_msg.payload[..]) {
-                    Ok(reply) => {
-                        println!("\n> [LIMIT_ORDER_RESPONSE]: success:{}, message:{}, order_id:{}, remaining_quantity:{:?}",
-                            reply.success, reply.message, order_id, reply.remaining_quantity);
-                        return (
-                            StatusCode::OK,
-                            Json(MarketResponse {
-                                success: reply.success,
-                                message: format!("{}, remaining: {:?}", reply.message, reply.remaining_quantity),
-                                order_id: Some(order_id),
-                                remaining_quantity: reply.remaining_quantity,
-                            }),
-                        );
-                    }
-                    Err(_) => {
-                        eprintln!("\n[ERROR] Failed to decode engine reply for order.limit");
-                        return (
-                            StatusCode::OK,
-                            Json(MarketResponse {
-                                success: true,
-                                message: "order placed, but failed to decode engine reply".to_string(),
-                                order_id: Some(order_id),
-                                remaining_quantity: None,
-                            }),
-                        );
-                    }
-                }
-            }
-            Err(_) => {
-                eprintln!("\n[ERROR] NATS request timeout for order.limit");
-                return (
-                    StatusCode::GATEWAY_TIMEOUT,
-                    Json(MarketResponse {
-                        success: false,
-                        message: "matching engine timeout".to_string(),
-                        order_id: None,
-                        remaining_quantity: None,
-                    }),
-                );
-            }
-        }
-    } else {
+    if event_payload.encode(&mut buf).is_err() {
         eprintln!("\n[ERROR] Failed to encode limit order payload");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -185,4 +108,70 @@ pub async fn limit(
             }),
         );
     }
+
+    let nats_result = match state.nats.request("order.limit", buf.into()).await {
+        Ok(reply_msg) => match LimitOrderResult::decode(&reply_msg.payload[..]) {
+            Ok(reply) => reply,
+            Err(_) => {
+                eprintln!("\n[ERROR] Failed to decode engine reply for order.limit");
+                return (
+                    StatusCode::OK,
+                    Json(MarketResponse {
+                        success: true,
+                        message: "order placed, but failed to decode engine reply".to_string(),
+                        order_id: Some(order_id),
+                        remaining_quantity: None,
+                    }),
+                );
+            }
+        },
+        Err(_) => {
+            eprintln!("\n[ERROR] NATS request timeout for order.limit");
+            return (
+                StatusCode::GATEWAY_TIMEOUT,
+                Json(MarketResponse {
+                    success: false,
+                    message: "matching engine timeout".to_string(),
+                    order_id: None,
+                    remaining_quantity: None,
+                }),
+            );
+        }
+    };
+
+    println!("\n> [LIMIT_ORDER_RESPONSE]: success:{}, message:{}, order_id:{}, remaining_quantity:{:?}",
+        nats_result.success, nats_result.message, order_id, nats_result.remaining_quantity);
+
+    // SAVE TO DB AFTER MATCHING
+    let db_success = limit_order(
+        &state.db,
+        LimitOrderRequest {
+            order_id: order_id.clone(),
+            user_id: user.0.clone(),
+            symbol: req.order.symbol.clone(),
+            quantity: req.order.quantity,
+            side: req.order.side,
+            order_type: req.order.order_type.clone(),
+            status: "pending".to_string(),
+            leverage: req.order.leverage,
+            tp: req.edge.tp.unwrap_or(0.0),
+            sl: req.edge.sl.unwrap_or(0.0),
+            open: req.order.price,
+        },
+    )
+    .await;
+
+    if !db_success.success {
+        eprintln!("\n[ERROR] Failed to persist order {order_id} to database after matching");
+    }
+
+    return (
+        StatusCode::OK,
+        Json(MarketResponse {
+            success: nats_result.success,
+            message: format!("{}, remaining: {:?}", nats_result.message, nats_result.remaining_quantity),
+            order_id: Some(order_id),
+            remaining_quantity: nats_result.remaining_quantity,
+        }),
+    );
 }
