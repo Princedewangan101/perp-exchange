@@ -64,6 +64,8 @@ pub struct OrderResponse {
     pub message: String,
     #[prost(double, tag = "2")]
     pub quantity: f64,
+    #[prost(double, tag = "3")]
+    pub price: f64,
 }
 
 #[derive(Clone, PartialEq, Message)]

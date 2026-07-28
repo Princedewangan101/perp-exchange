@@ -108,7 +108,7 @@ pub async fn market(
         }
     };
 
-    let fill_price = nats_result.quantity;
+    let fill_price = nats_result.price;
 
     let db_success = market_order(
         &state.db,
@@ -136,7 +136,7 @@ pub async fn market(
         StatusCode::OK,
         Json(MarketResponse {
             success: true,
-            message: format!("{}, Qty: {}", nats_result.message, nats_result.quantity),
+            message: format!("{}, Qty: {}, Price: {}", nats_result.message, nats_result.quantity, nats_result.price),
             order_id: Some(order_id),
         }),
     );

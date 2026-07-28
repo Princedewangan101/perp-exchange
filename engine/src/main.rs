@@ -2,13 +2,14 @@ use std::collections::HashMap;
 use futures::StreamExt;
 use prost::Message;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
 
 mod mock_order;
 mod order_book;
 mod proto;
 use order_book::Market;
-use proto::{LimitOrderPayload, LimitOrderResult, OrderRequest};
+use proto::{LimitOrderPayload, LimitOrderResult};
 
 // ---- JSON PAYLOADS FOR order.* SUBJECTS ----
 #[derive(Deserialize)]
@@ -111,7 +112,8 @@ async fn engine() {
                     resp.success, resp.message, resp.price, resp.order_id);
                 let reply = proto::OrderResponse {
                     message: resp.message,
-                    quantity: resp.price.to_f64().unwrap_or(0.0),
+                    quantity: 0.0,
+                    price: resp.price.to_f64().unwrap_or(0.0),
                 };
                 let mut buf = Vec::new();
                 if reply.encode(&mut buf).is_ok() {
