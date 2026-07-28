@@ -42,12 +42,26 @@ pub struct OrderFilled {
     pub quantity: f64,
 }
 
-/// Wraps both event types and adds `event_type` discriminator during serialization
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OrderBookEntry {
+    pub price: f64,
+    pub quantity: f64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OrderBookData {
+    pub symbol: String,
+    pub bids: Vec<OrderBookEntry>,
+    pub asks: Vec<OrderBookEntry>,
+}
+
+/// Wraps event types and adds `event_type` discriminator during serialization
 #[derive(Serialize)]
 #[serde(tag = "event_type")]
 pub enum WsEvent {
     LivePrice(LivePrice),
     OrderFilled(OrderFilled),
+    OrderBook(OrderBookData),
 }
 
 /// One connected browser session
@@ -165,6 +179,24 @@ pub fn spawn_nats_subscribers(state: &AppState) {
                         if let Some(uid) = &fill.sell_user_id {
                             wm.unicast(uid, &json).await;
                         }
+                    }
+                }
+            }
+        });
+    }
+
+    {
+        let nats = state.nats.clone();
+        let wm = state.ws_manager.clone();
+        tokio::spawn(async move {
+            let mut sub = match nats.subscribe("orderbook.snapshot").await {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            while let Some(msg) = sub.next().await {
+                if let Ok(ob) = serde_json::from_slice::<OrderBookData>(&msg.payload) {
+                    if let Ok(json) = serde_json::to_string(&WsEvent::OrderBook(ob)) {
+                        wm.broadcast(&json).await;
                     }
                 }
             }

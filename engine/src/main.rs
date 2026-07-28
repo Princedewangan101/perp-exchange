@@ -60,7 +60,7 @@ async fn engine() {
                     payload.order_id, payload.user_id, payload.symbol, payload.quantity, payload.side, payload.price, payload.tp, payload.sl);
                 let market = markets
                     .entry(payload.symbol.clone())
-                    .or_insert_with(|| Market::new(payload.symbol.clone()));
+                    .or_insert_with(|| Market::new(payload.symbol.clone(), nats.clone()));
                 let order_id = payload.order_id.clone();
                 let result = market.add_limit_order(order_book::LimitOrderEventPayload {
                     user_id: payload.user_id,
@@ -99,7 +99,7 @@ async fn engine() {
                 };
                 let market = markets
                     .entry(req.symbol.clone())
-                    .or_insert_with(|| Market::new(req.symbol.clone()));
+                    .or_insert_with(|| Market::new(req.symbol.clone(), nats.clone()));
                 let resp = market.market(order_book::MarketPayload {
                     user_id: req.user_id,
                     order_id: req.order_id,

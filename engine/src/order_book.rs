@@ -1,6 +1,6 @@
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, HashMap, HashSet},
@@ -89,6 +89,28 @@ type Price = Decimal;
 type Tp = Decimal;
 type Sl = Decimal;
 
+#[derive(Serialize, Clone)]
+pub struct FillEvent {
+    pub buy_order_id: String,
+    pub sell_order_id: String,
+    pub buy_user_id: String,
+    pub sell_user_id: String,
+    pub quantity: f64,
+}
+
+#[derive(Serialize, Clone)]
+pub struct OrderBookEntry {
+    pub price: f64,
+    pub quantity: f64,
+}
+
+#[derive(Serialize, Clone)]
+pub struct OrderBookSnapshot {
+    pub symbol: String,
+    pub bids: Vec<OrderBookEntry>,
+    pub asks: Vec<OrderBookEntry>,
+}
+
 // ---- MARKET STATE FOR ONE TRADING SYaMBOL (e.g. BTC) ----
 pub struct Market {
     pub symbol: String,
@@ -98,10 +120,11 @@ pub struct Market {
     pub user_orders: HashMap<UserId, HashSet<OrderId>>,                // TRACKS WHICH USER OWNS WHICH ORDERS
     pub buy_order_lookup: HashMap<OrderId, (Price, Tp, Sl)>,           // QUICK LOOKUP: ORDER_ID -> (PRICE, TP, SL) FOR BUYS
     pub sell_order_lookup: HashMap<OrderId, (Price, Tp, Sl)>,          // QUICK LOOKUP: ORDER_ID -> (PRICE, TP, SL) FOR SELLS
+    pub nats: async_nats::Client,
 }
 
 impl Market {
-    pub fn new(symbol: String) -> Self {
+    pub fn new(symbol: String, nats: async_nats::Client) -> Self {
         Self {
             symbol,
             last_price: Decimal::ZERO,
@@ -110,6 +133,40 @@ impl Market {
             user_orders: HashMap::new(),
             buy_order_lookup: HashMap::new(),
             sell_order_lookup: HashMap::new(),
+            nats,
+        }
+    }
+
+    fn publish_fill(&self, buy_order_id: &str, sell_order_id: &str, buy_user_id: &str, sell_user_id: &str, quantity: f64) {
+        let nats = self.nats.clone();
+        if let Ok(payload) = serde_json::to_vec(&FillEvent {
+            buy_order_id: buy_order_id.to_string(),
+            sell_order_id: sell_order_id.to_string(),
+            buy_user_id: buy_user_id.to_string(),
+            sell_user_id: sell_user_id.to_string(),
+            quantity,
+        }) {
+            tokio::task::spawn(async move {
+                let _ = nats.publish("order.filled", payload.into()).await;
+            });
+        }
+    }
+
+    fn publish_orderbook(&self) {
+        let nats = self.nats.clone();
+        let symbol = self.symbol.clone();
+        let bids: Vec<OrderBookEntry> = self.buy_order.iter().rev().map(|(Reverse(price), orders)| {
+            let total_qty: f64 = orders.iter().map(|o| o.quantity).sum();
+            OrderBookEntry { price: price.to_f64().unwrap_or(0.0), quantity: total_qty }
+        }).collect();
+        let asks: Vec<OrderBookEntry> = self.sell_order.iter().map(|(price, orders)| {
+            let total_qty: f64 = orders.iter().map(|o| o.quantity).sum();
+            OrderBookEntry { price: price.to_f64().unwrap_or(0.0), quantity: total_qty }
+        }).collect();
+        if let Ok(payload) = serde_json::to_vec(&OrderBookSnapshot { symbol, bids, asks }) {
+            tokio::task::spawn(async move {
+                let _ = nats.publish("orderbook.snapshot", payload.into()).await;
+            });
         }
     }
 
@@ -146,11 +203,15 @@ impl Market {
                             Decimal::from_f64_retain(sell_order.quantity).unwrap();
 
                         if payload_quantity < sell_order_quantity {
-                            sell_order.quantity -= payload_quantity.to_f64().unwrap();
+                            let fill_qty = payload_quantity.to_f64().unwrap();
+                            sell_order.quantity -= fill_qty;
                             payload_quantity = Decimal::ZERO;
+                            self.publish_fill(&payload.order_id, &sell_order.order_id, &payload.user_id, &sell_order.user_id, fill_qty);
                             remaining.push(sell_order);
                         } else {
-                            payload_quantity -= sell_order_quantity
+                            let fill_qty = sell_order_quantity.to_f64().unwrap();
+                            payload_quantity -= sell_order_quantity;
+                            self.publish_fill(&payload.order_id, &sell_order.order_id, &payload.user_id, &sell_order.user_id, fill_qty);
                         }
                     }
 
@@ -161,7 +222,9 @@ impl Market {
                 } else {
                     // SELL ORDERS AT THIS PRICE <= OUR BUY QUANTITY -> FULL CONSUMPTION OF THIS LEVEL
                     for sell_order in lowest_price_sell_orders_vec.iter_mut() {
+                        let fill_qty = sell_order.quantity;
                         payload_quantity -= Decimal::from_f64_retain(sell_order.quantity).unwrap();
+                        self.publish_fill(&payload.order_id, &sell_order.order_id, &payload.user_id, &sell_order.user_id, fill_qty);
                     }
                     return Some(payload_quantity.to_f64().unwrap());
                 }
@@ -201,11 +264,15 @@ impl Market {
                             Decimal::from_f64_retain(buy_order.quantity).unwrap();
 
                         if payload_quantity < buy_order_quantity {
-                            buy_order.quantity -= payload_quantity.to_f64().unwrap();
+                            let fill_qty = payload_quantity.to_f64().unwrap();
+                            buy_order.quantity -= fill_qty;
                             payload_quantity = Decimal::ZERO;
+                            self.publish_fill(&buy_order.order_id, &payload.order_id, &buy_order.user_id, &payload.user_id, fill_qty);
                             remaining.push(buy_order);
                         } else {
-                            payload_quantity -= buy_order_quantity
+                            let fill_qty = buy_order_quantity.to_f64().unwrap();
+                            payload_quantity -= buy_order_quantity;
+                            self.publish_fill(&buy_order.order_id, &payload.order_id, &buy_order.user_id, &payload.user_id, fill_qty);
                         }
                     }
 
@@ -216,7 +283,9 @@ impl Market {
                 } else {
                     // BUY ORDERS AT THIS PRICE <= OUR SELL QUANTITY -> FULL CONSUMPTION
                     for buy_order in highest_price_buy_orders_vec.iter_mut() {
+                        let fill_qty = buy_order.quantity;
                         payload_quantity -= Decimal::from_f64_retain(buy_order.quantity).unwrap();
+                        self.publish_fill(&buy_order.order_id, &payload.order_id, &buy_order.user_id, &payload.user_id, fill_qty);
                     }
                     return Some(payload_quantity.to_f64().unwrap());
                 }
@@ -257,6 +326,7 @@ impl Market {
                         .entry(payload.user_id.clone())
                         .or_insert_with(HashSet::new)
                         .insert(payload.order_id.clone());
+                    self.publish_orderbook();
                     return Ok(AddLimitOrderResponse {
                         success: true,
                         remaining_quantity: None,
@@ -283,12 +353,14 @@ impl Market {
                             .entry(user_id.clone())
                             .or_insert_with(HashSet::new)
                             .insert(order_id);
+                        self.publish_orderbook();
                         return Ok(AddLimitOrderResponse {
                             success: true,
                             remaining_quantity: Some(remaining_quantity),
                             message: "order filled with remaining qty.".to_string(),
                         });
                     }
+                    self.publish_orderbook();
                     return Ok(AddLimitOrderResponse {
                         success: true,
                         remaining_quantity: None,
@@ -311,6 +383,7 @@ impl Market {
                     .entry(payload.user_id.clone())
                     .or_insert_with(HashSet::new)
                     .insert(payload.order_id.clone());
+                self.publish_orderbook();
                 return Ok(AddLimitOrderResponse {
                     success: true,
                     remaining_quantity: None,
@@ -335,6 +408,7 @@ impl Market {
                         .entry(user_id.clone())
                         .or_insert_with(HashSet::new)
                         .insert(order_id);
+                    self.publish_orderbook();
                     return Ok(AddLimitOrderResponse {
                         success: true,
                         remaining_quantity: None,
@@ -361,12 +435,14 @@ impl Market {
                             .entry(user_id.clone())
                             .or_insert_with(HashSet::new)
                             .insert(order_id);
+                        self.publish_orderbook();
                         return Ok(AddLimitOrderResponse {
                             success: true,
                             remaining_quantity: Some(remaining_quantity),
                             message: "order filled with remaining qty.".to_string(),
                         });
                     }
+                    self.publish_orderbook();
                     return Ok(AddLimitOrderResponse {
                         success: true,
                         remaining_quantity: None,
@@ -388,6 +464,7 @@ impl Market {
                     .entry(user_id.clone())
                     .or_insert_with(HashSet::new)
                     .insert(order_id);
+                self.publish_orderbook();
                 return Ok(AddLimitOrderResponse {
                     success: true,
                     remaining_quantity: None,
@@ -531,6 +608,7 @@ impl Market {
                 self.user_orders.remove(&payload.user_id);
             }
         }
+        self.publish_orderbook();
         CloseResponse {
             success: true,
             order_id: Some(payload.order_id),
@@ -560,6 +638,7 @@ impl Market {
                 }
             }
         }
+        self.publish_orderbook();
         CloseAllResponse {
             success: true,
             message: "all order removed".to_string(),
@@ -613,6 +692,7 @@ impl Market {
                         }
                     }
                 } else {
+                    self.publish_orderbook();
                     return MarketResponse {
                         success: false,
                         price: self.last_price,
@@ -661,6 +741,7 @@ impl Market {
                         }
                     }
                 } else {
+                    self.publish_orderbook();
                     return MarketResponse {
                         success: false,
                         price: self.last_price,
@@ -671,6 +752,7 @@ impl Market {
             }
         }
 
+        self.publish_orderbook();
         MarketResponse {
             success: true,
             price: self.last_price,
