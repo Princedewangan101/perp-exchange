@@ -71,17 +71,6 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
                 return res.data;
             }
         },
-        onSuccess: (data) => {
-            if (data.success) {
-                toast.success(data.message || 'Order executed successfully.');
-            } else {
-                console.log(`\n> order data: ${data}`);
-                toast.error(data.message || 'Order failed.');
-            }
-        },
-        onError: (error: any) => {
-            toast.error(error.message);
-        },
     });
 
     function handleOrderSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -96,7 +85,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
             sl: sl ? Number(sl) : 0,
             symbol,
         });
-        mutation.mutate({
+        const promise = mutation.mutateAsync({
             orderType,
             side: side === "BUY" ? 1 : 0,
             quantity: Number(quantity),
@@ -105,6 +94,15 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
             tp: tp ? Number(tp) : 0,
             sl: sl ? Number(sl) : 0,
             symbol,
+        }).then((data) => {
+            if (!data.success) throw new Error(data.message || 'Order failed.');
+            return data;
+        });
+
+        toast.promise(promise, {
+            loading: `${orderType === 'market' ? 'Market' : 'Limit'} order processing...`,
+            success: (data) => data.message || 'Order executed successfully.',
+            error: (err) => err.message || 'Order failed.',
         });
     }
 

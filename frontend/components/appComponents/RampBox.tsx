@@ -25,18 +25,6 @@ const RampBox = ({ isOpen, onClose, defaultMode = "deposit" }: RampBoxProps) => 
       const res = await axios.post('http://localhost:5000/api/deposit', body, config);
       return res.data;
     },
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success(data.message || 'Deposit successful.');
-        setBalance(totalBalance + Number(amount));
-        setAmount("");
-      } else {
-        toast.error(data.message || 'Deposit failed.');
-      }
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || error.message);
-    },
   });
 
   const withdrawMutation = useMutation({
@@ -44,18 +32,6 @@ const RampBox = ({ isOpen, onClose, defaultMode = "deposit" }: RampBoxProps) => 
       const body = { amount: Number(data.amount) };
       const res = await axios.post('http://localhost:5000/api/withdraw', body, config);
       return res.data;
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success(data.message || 'Withdraw successful.');
-        setBalance(totalBalance - Number(amount));
-        setAmount("");
-      } else {
-        toast.error(data.message || 'Withdraw failed.');
-      }
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || error.message);
     },
   });
 
@@ -67,9 +43,29 @@ const RampBox = ({ isOpen, onClose, defaultMode = "deposit" }: RampBoxProps) => 
       return;
     }
     if (mode === "deposit") {
-      depositMutation.mutate({ amount: parsedAmount });
+      const promise = depositMutation.mutateAsync({ amount: parsedAmount }).then((data) => {
+        if (!data.success) throw new Error(data.message || 'Deposit failed.');
+        setBalance(totalBalance + parsedAmount);
+        setAmount("");
+        return data;
+      });
+      toast.promise(promise, {
+        loading: 'Depositing...',
+        success: (data) => data.message || 'Deposit successful.',
+        error: (err) => err.message || 'Deposit failed.',
+      });
     } else {
-      withdrawMutation.mutate({ amount: parsedAmount });
+      const promise = withdrawMutation.mutateAsync({ amount: parsedAmount }).then((data) => {
+        if (!data.success) throw new Error(data.message || 'Withdraw failed.');
+        setBalance(totalBalance - parsedAmount);
+        setAmount("");
+        return data;
+      });
+      toast.promise(promise, {
+        loading: 'Withdrawing...',
+        success: (data) => data.message || 'Withdraw successful.',
+        error: (err) => err.message || 'Withdraw failed.',
+      });
     }
   }
 
