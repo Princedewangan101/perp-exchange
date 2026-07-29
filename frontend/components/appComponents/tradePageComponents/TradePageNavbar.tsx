@@ -28,13 +28,16 @@ const TradePageNavbar = () => {
 
     return (
         <nav className='h-10 flex items-center justify-between px-3  text-zinc-300 text-sm'>
+            {/* doc: logo + brand name */}
             <div className='flex items-center gap-2'>
                 <Image src="/vercel.svg" alt='logo' width={18} height={18} />
                 <p className='text-base font-bold text-white'>Exchange</p>
             </div>
+            {/* doc: SPOT / FUTURE / MORE navigation */}
             <div className='flex items-center gap-1 mr-auto ml-10'>
                 <button className='px-3 py-1 rounded text-gray-400 hover:text-white'>SPOT</button>
                 <button className='px-3 py-1 rounded text-gray-400 hover:text-white'>FUTURE</button>
+                {/* doc: MORE dropdown trigger + menu */}
                 <div className='relative' ref={moreRef}>
                     <button
                         onClick={() => setMoreOpen(!moreOpen)}
@@ -54,24 +57,15 @@ const TradePageNavbar = () => {
                     )}
                 </div>
             </div>
+            {/* doc: search, theme, settings icons + auth */}
             <div className='flex items-center gap-2'>
                 <button className='p-1.5 rounded text-gray-500 hover:text-white'>
                     <svg width="20" height="20" viewBox="0 0 15 15" fill="none">
-                        <path d="M10 6.5C10 8.433 8.433 10 6.5 10C4.567 10 3 8.433 3 6.5C3 4.567 4.567 3 6.5 3C8.433 3 10 4.567 10 6.5ZM9.30884 10.0159C8.53901 10.6318 7.56251 11 6.5 11C4.01472 11 2 8.98528 2 6.5C2 4.01472 4.01472 2 6.5 2C8.98528 2 11 4.01472 11 6.5C11 7.56251 10.6318 8.53901 10.0159 9.30884L12.8536 12.1464C13.0488 12.3417 13.0488 12.6583 12.8536 12.8536C12.6583 13.0488 12.3417 13.0488 12.1464 12.8536L9.30884 10.0159Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
+                        <path d="M10 6.5C10 8.433 8.433 10 6.5 10C4.567 10 3 8.433 3 6.5C3 4.567 4.567 2 6.5 2C8.98528 2 11 4.01472 11 6.5C11 7.56251 10.6318 8.53901 10.0159 9.30884L12.8536 12.1464C13.0488 12.3417 13.0488 12.6583 12.8536 12.8536C12.6583 13.0488 12.3417 13.0488 12.1464 12.8536L9.30884 10.0159Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
                     </svg>
                 </button>
                 <button className='p-1.5 rounded text-gray-500 hover:text-white'>
-                    <svg
-                        xmlns="http://w3.org"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    >
+                    <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="4" />
                         <path d="M12 2v2" />
                         <path d="M12 20v2" />
@@ -84,35 +78,18 @@ const TradePageNavbar = () => {
                     </svg>
                 </button>
                 <button className='p-1.5 rounded text-gray-500 hover:text-white'>
-                    <svg
-                        xmlns="http://w3.org"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                         strokeLinejoin="round"
-                    >
+                    <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                     </svg>
                 </button>
                 {!hydrated || userId === "" ? (
                     <>
-                        <button className='flex items-center gap-1 px-2 py-1 rounded font-semibold bg-zinc-800 text-white'>
-                            Login
-                        </button>
-                        <button className='flex items-center gap-1 px-2 py-1 rounded font-semibold bg-zinc-900 text-white'>
-                            Signup
-                        </button>
+                        <button className='flex items-center gap-1 px-2 py-1 rounded font-semibold bg-zinc-800 text-white'>Login</button>
+                        <button className='flex items-center gap-1 px-2 py-1 rounded font-semibold bg-zinc-900 text-white'>Signup</button>
                     </>
-                ) 
-                : 
-                (
+                ) : (
                     <Image src="/dp.png" alt='logo' width={30} height={30} className='rounded-full' />
-                )
-                }
+                )}
             </div>
         </nav>
     )

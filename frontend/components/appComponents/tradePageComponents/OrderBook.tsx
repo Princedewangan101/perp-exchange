@@ -62,6 +62,7 @@ const OrderBook = ({ symbol }: { symbol: string }) => {
 
   if (!isOpen) {
     return (
+      // doc: collapsed orderbook — expand button (arrow left)
       <button
         onClick={() => setIsOpen(true)}
         className="bg-zinc-950 rounded self-stretch flex items-center px-1 hover:bg-zinc-900"
@@ -74,7 +75,9 @@ const OrderBook = ({ symbol }: { symbol: string }) => {
   }
 
   return (
+    // doc: orderbook container — price / size / total columns with depth bars
     <div className="bg-zinc-950 px-1 rounded min-w-70 h-150 flex flex-col text-xs">
+      {/* doc: header row — lock/unlock toggle + collapse button */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
         <button
           onClick={() => setLocked((v) => !v)}
@@ -104,20 +107,25 @@ const OrderBook = ({ symbol }: { symbol: string }) => {
         </button>
       </div>
 
+      {/* doc: column headers — Price / Size / Total */}
       <div className="px-3 py-1 flex justify-between text-zinc-500 border-b border-zinc-800">
         <span>Price (USD)</span>
         <span>Size ({coin})</span>
         <span>Total ({coin})</span>
       </div>
 
+      {/* doc: scrollable orderbook rows */}
       <div className="h-full overflow-y-auto">
+        {/* doc: asks section — red depth bars, highest-to-lowest */}
         <div className="px-3 border-b border-zinc-800">
           {asksWithTotal.map((ask, i) => (
             <div key={i} className="flex justify-between py-0.5 relative">
+              {/* doc: cumulative depth bar (dark red) */}
               <div
                 className="absolute right-0 top-0 h-full bg-red-950/40"
                 style={{ width: `${(ask.total / maxTotal) * 100}%` }}
               />
+              {/* doc: level depth bar (light red) */}
               <div
                 className="absolute right-0 top-0 h-full bg-red-500/20"
                 style={{ width: `${(ask.quantity / maxQty) * 100}%` }}
@@ -129,19 +137,23 @@ const OrderBook = ({ symbol }: { symbol: string }) => {
           ))}
         </div>
 
+        {/* doc: spread / mid price */}
         <div className="flex items-center justify-between px-3 py-1">
           <span className="font-semibold text-base">
             {asks[0]?.price?.toFixed(2) ?? bids[0]?.price?.toFixed(2) ?? "—"}
           </span>
         </div>
 
+        {/* doc: bids section — green depth bars, highest-to-lowest */}
         <div className="px-3 py-1 border-y border-zinc-800">
           {bidsWithTotal.map((bid, i) => (
             <div key={i} className="flex justify-between py-0.5 relative">
+              {/* doc: cumulative depth bar (dark green) */}
               <div
                 className="absolute right-0 top-0 h-full bg-green-950/40"
                 style={{ width: `${(bid.total / maxTotal) * 100}%` }}
               />
+              {/* doc: level depth bar (light green) */}
               <div
                 className="absolute right-0 top-0 h-full bg-green-500/20"
                 style={{ width: `${(bid.quantity / maxQty) * 100}%` }}

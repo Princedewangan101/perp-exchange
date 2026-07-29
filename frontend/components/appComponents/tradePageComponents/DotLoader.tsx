@@ -3,6 +3,7 @@ import React from 'react'
 const DotLoader = () => {
     return (
         <div className="flex items-center justify-center h-110 w-full">
+            {/* doc: animated dot loader */}
             <div className="flex gap-2">
                 {[0, 1, 2].map((i) => (
                     <div

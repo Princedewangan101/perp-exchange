@@ -78,41 +78,6 @@ const Charts = ({ symbol }: { symbol: string }) => {
 
     }
 
-    // updateCandle(symbolWithUnderScore)
-
-    // async function updateCandle(symbol: string) {
-    //   if (!process.env.NEXT_PUBLIC_BACKPACK_URL) { throw new Error("NEXT_PUBLIC_BACKPACK_URL not found !!!"); }
-    //   const ws: WebSocket = new WebSocket(process.env.NEXT_PUBLIC_BACKPACK_URL)
-
-    //   ws.onopen = () => {
-    //     ws.send(
-    //       JSON.stringify({
-    //         method: "SUBSCRIBE",
-    //         params: [`kline.1m.${symbol}C`],
-    //         id: 1,
-    //       })
-    //     );
-    //   };
-
-    //   ws.onmessage = async (e: any) => {
-    //     const parsedData = JSON.parse(e.data);
-    //     const { o, h, l, c, t } = parsedData.data;
-    //     const time = Number(Math.floor(new Date(t).getTime() / 1000))
-
-    //     if (isChartReady.current) {
-    //       candlestickSeries.update({
-    //         time: time as any,
-    //         open: Number(o),
-    //         high: Number(h),
-    //         low: Number(l),
-    //         close: Number(c),
-    //       })
-    //     }
-    //   };
-
-    //   return ws
-    // }
-
     const debouncedScroll = debounce(handleScrollLeftOfChart, 1000)
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => { debouncedScroll(); });
@@ -153,11 +118,15 @@ const Charts = ({ symbol }: { symbol: string }) => {
   }, [symbolWithoutSlash]);
 
   return (
+    // doc: charts container — candlestick chart + toolbar
     <div className="relative flex flex-col w-full h-fit bg-zinc-950 px-2 pt-2 rounded overflow-y-auto">
+      {/* doc: canvas target for lightweight-charts */}
       <div ref={chartContainerRef} className="z-0" />
 
+      {/* doc: loading spinner shown while chart initialises */}
       {!isChartLoaded && (<DotLoader />)}
 
+      {/* doc: dropdown arrow overlay (top-right) */}
       <div className="absolute z-10 top-0.5 right-22 rounded-full  bg-zinc-800">
         <div className=" px-3">
            <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
@@ -166,6 +135,7 @@ const Charts = ({ symbol }: { symbol: string }) => {
         </div>
       </div>
 
+      {/* doc: collapse arrow overlay (bottom-left) */}
       <div className="absolute z-10 bottom-30 left-0.5 rounded-full bg-zinc-800">
         <div className="py-3">
           <svg width="14" height="14" viewBox="0 0 15 15" fill="none" className="rotate-180 block">
@@ -174,13 +144,9 @@ const Charts = ({ symbol }: { symbol: string }) => {
         </div>
       </div>
 
-      {/* <div className="absolute z-10 top-0.5 left-1/2 -translate-x-1/2">
-        <div className="border h-10 w-120">
-          indicator n all
-        </div>
-      </div> */}
-
+      {/* doc: bottom toolbar — timeframe selector + chart adjusters + drawer toggle */}
       <div className="w-full flex bg-zinc-s rounded py-1">
+        {/* doc: timeframe buttons (1m, 5m, 15m, … + expand) */}
         <div className="h-full flex gap-1 ml-3">
           {
             (timeframeExpanded ? timeFrame : timeFrame.slice(0, 5)).map(({ time }) => (
@@ -204,6 +170,7 @@ const Charts = ({ symbol }: { symbol: string }) => {
             </svg>
           </button>
         </div>
+        {/* doc: right toolbar — chart adjusters (% / log / auto) + Close overlay + drawer toggle */}
         <div className="flex gap-1 ml-auto mr-3 h-full">
           {
             chartAdjuster.map((x) =>
@@ -214,6 +181,7 @@ const Charts = ({ symbol }: { symbol: string }) => {
               </div>
             )
           }
+          {/* doc: Close overlay dropdown */}
           <div className='relative'>
             <button
               onClick={() => setDropupOpen(!dropupOpen)}
@@ -223,6 +191,7 @@ const Charts = ({ symbol }: { symbol: string }) => {
             </button>
             <div className={`${dropupOpen ? "block" : "hidden"} absolute bottom-8 right-0 border border-zinc-700 bg-zinc-900 h-60 w-60 rounded`} />
           </div>
+          {/* doc: drawer toggle button */}
           <button
             onClick={() => setIsDrawerOpen(!isDrawerOpen)}
             className={`${isDrawerOpen ? "rotate-180" : "rotate-0"} text-sm p-1 hover:bg-zinc-800 rounded-md transition-transform`}

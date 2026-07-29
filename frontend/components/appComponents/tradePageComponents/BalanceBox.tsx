@@ -8,7 +8,6 @@ const BalanceBox = () => {
     const [isProfit, setIsProfit] = React.useState<boolean>(true);
     const [balanceDetailDropDown, setbalanceDetailDropDown] = React.useState<boolean>(false);
 
-
     function getRandomPrice() {
         const min = 65000;
         const max = 70000;
@@ -21,7 +20,8 @@ const BalanceBox = () => {
 
     return (
         <div className="relative font-semibold h-full px-4 min-w-25 flex justify-center items-center cursor-default">
-            <div className='flex gap-1 justify-center items-center group'>
+            {/* doc: balance display row with dropdown toggle */}
+            <div className='flex gap-1 justify-center items-center group' onClick={() => setbalanceDetailDropDown((v) => !v)}>
                 <p>
                     {"$"} {340550.33}
                 </p>
@@ -30,7 +30,7 @@ const BalanceBox = () => {
                 </svg>
             </div>
 
-            {/* DROP-DOWN */}
+            {/* doc: balance detail dropdown — Balance and Equity values */}
             {balanceDetailDropDown && (
                 <div className='absolute right-0 top-10 z-50 shadow-md shadow-gray-800 font-normal text-[15px] px-3 py-1 rounded-md bg-[#18181b]'>
                     <div className='flex gap-2'>

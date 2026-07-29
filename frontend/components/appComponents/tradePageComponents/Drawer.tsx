@@ -74,7 +74,7 @@ const Drawer = () => {
     <div
       className={`flex flex-col mt-1 bg-zinc-950 rounded transition-all duration-500 overflow-hidden ${isDrawerOpen ? "max-h-[600px]" : "max-h-0"}`}
     >
-      {/* Tabs */}
+      {/* doc: status filter tabs — All / Pending / Open / Close */}
       <div className="flex items-center gap-0.5 px-3 pt-2 pb-1 border-b border-zinc-800">
         {drawerPostionHeader.map((tab) => (
           <button
@@ -96,7 +96,7 @@ const Drawer = () => {
         ))}
       </div>
 
-      {/* Column headers */}
+      {/* doc: table column headers */}
       <div className="flex items-center gap-2 px-4 py-1.5 text-[11px] font-medium text-zinc-500 border-b border-zinc-800/60">
         {columns.map((col) => (
           <span
@@ -108,7 +108,7 @@ const Drawer = () => {
         ))}
       </div>
 
-      {/* Rows */}
+      {/* doc: order rows */}
       <div className="flex flex-col text-xs">
         {filtered.length === 0 ? (
           <div className="flex items-center justify-center py-12 text-zinc-600 text-sm">
@@ -121,46 +121,16 @@ const Drawer = () => {
               onClick={() => router.push(`/trade/${item.symbol}`)}
               className="flex items-center gap-2 px-4 py-2 border-b border-zinc-800/40 hover:bg-zinc-900/50 cursor-pointer transition-colors"
             >
-              <span className="flex-1 truncate font-medium text-zinc-200">
-                {item.symbol}
-              </span>
-              <span
-                className={`w-14 font-medium ${
-                  item.side === "BUY" ? "text-emerald-500" : "text-red-500"
-                }`}
-              >
-                {item.side}
-              </span>
-              <span className="w-20 text-right text-zinc-300">
-                {formatQty(item.quantity)}
-              </span>
-              <span className="w-24 text-right text-zinc-300">
-                {formatPrice(item.op)}
-              </span>
-              <span className="w-24 text-right text-zinc-300">
-                {formatPrice(item.cp)}
-              </span>
-              <span className="w-22 text-right text-zinc-300">
-                {formatPrice(item.sl)}
-              </span>
-              <span className="w-22 text-right text-zinc-300">
-                {formatPrice(item.tp)}
-              </span>
-              <span
-                className={`w-28 text-right font-medium ${
-                  item.pnl === "-" || item.pnl === undefined
-                    ? "text-zinc-500"
-                    : item.pnl >= 0
-                      ? "text-emerald-500"
-                      : "text-red-500"
-                }`}
-              >
-                {formatPnl(item.pnl)}
-              </span>
+              <span className="flex-1 truncate font-medium text-zinc-200">{item.symbol}</span>
+              <span className={`w-14 font-medium ${item.side === "BUY" ? "text-emerald-500" : "text-red-500"}`}>{item.side}</span>
+              <span className="w-20 text-right text-zinc-300">{formatQty(item.quantity)}</span>
+              <span className="w-24 text-right text-zinc-300">{formatPrice(item.op)}</span>
+              <span className="w-24 text-right text-zinc-300">{formatPrice(item.cp)}</span>
+              <span className="w-22 text-right text-zinc-300">{formatPrice(item.sl)}</span>
+              <span className="w-22 text-right text-zinc-300">{formatPrice(item.tp)}</span>
+              <span className={`w-28 text-right font-medium ${item.pnl === "-" || item.pnl === undefined ? "text-zinc-500" : item.pnl >= 0 ? "text-emerald-500" : "text-red-500"}`}>{formatPnl(item.pnl)}</span>
               <span className="w-22 text-zinc-500">{item.status}</span>
-              <span className="w-28 text-right text-zinc-500">
-                {formatTime(item.executionTime)}
-              </span>
+              <span className="w-28 text-right text-zinc-500">{formatTime(item.executionTime)}</span>
             </div>
           ))
         )}

@@ -109,19 +109,23 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
     }
 
     return (
+        // doc: order panel form — Buy/Long or Sell/Short
         <form onSubmit={handleOrderSubmit} className='bg-zinc-950 min-w-75 max-h-150 rounded px-2 py-1 h-full flex flex-col'>
             <div className='px-2 flex-1 overflow-y-auto'>
                 <div className="space-y-5">
+                    {/* doc: order type toggle — Market / Limit */}
                     <div className="flex w-full bg-zinc-900/70 rounded-md focus:outline-none">
                         <p onClick={handleOrderType} className={`w-full text-center p-2 rounded-md ${orderType === "market" && "bg-zinc-800"}`}>Market</p>
                         <p onClick={handleOrderType} className={`w-full text-center p-2 rounded-md ${orderType === "limit" && "bg-zinc-800"}`}>Limit</p>
                     </div>
 
+                    {/* doc: side toggle — Buy/Long / Sell/Short */}
                     <div className="flex w-full bg-zinc-900/70 rounded-md focus:outline-none">
                         <p onClick={handleSide} className={`w-full text-center p-2 rounded-md ${side === "BUY" && "bg-testbg"}`}>Buy/Long</p>
                         <p onClick={handleSide} className={`w-full text-center p-2 rounded-md ${side === "SELL" && "bg-red-400"}`}>Sell/Short</p>
                     </div>
 
+                    {/* doc: quantity input */}
                     <div>
                         <label htmlFor="quantity" className="block mb-1 font-medium text-slate-300">Quantity</label>
                         <input
@@ -136,6 +140,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
                         />
                     </div>
 
+                    {/* doc: price input (limit orders only) */}
                     {orderType === "limit" && (
                         <div>
                             <label htmlFor="price" className="block mb-1 font-medium text-slate-300">Price</label>
@@ -151,6 +156,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
                         </div>
                     )}
 
+                    {/* doc: leverage slider */}
                     <div>
                         <div className="mx-auto grid w-full max-w-xs gap-1">
                             <div className="flex items-center justify-between gap-2">
@@ -168,6 +174,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
                         </div>
                     </div>
 
+                    {/* doc: take profit input */}
                     <div>
                         <label htmlFor="tp" className="block mb-1 font-medium text-slate-300">Take Profit</label>
                         <input
@@ -181,6 +188,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
                         />
                     </div>
 
+                    {/* doc: stop loss input */}
                     <div>
                         <label htmlFor="sl" className="block mb-1 font-medium text-slate-300">Stop Loss</label>
                         <input
@@ -194,6 +202,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
                         />
                     </div>
 
+                    {/* doc: order summary — mark price, order value, margin, fee */}
                     <div className='px-3 py-1.5 bg-zinc-s text-gray-300 rounded-md'>
                         <div className='text-sm mb-1 flex justify-between'>
                             <p>Mark Price</p>
@@ -214,6 +223,7 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
                         </div>
                     </div>
 
+                    {/* doc: submit button — color matches side */}
                     <button
                         type="submit"
                         disabled={mutation.isPending}
