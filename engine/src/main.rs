@@ -44,7 +44,90 @@ async fn engine() {
     let nats = async_nats::connect("127.0.0.1:4222").await.unwrap();
     let mut markets: HashMap<String, Market> = HashMap::new();
 
+    // Mock limit-order stream for BTC-PERP
+    {
+        let nats = nats.clone();
+        tokio::spawn(async move {
+            let mut counter = 0u64;
+            let mut last_price = 65000.0;
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
+                last_price += (rand::random::<f64>() * 600.0) - 300.0;
+                last_price = last_price.clamp(60000.0, 70000.0);
+
+                for i in 0..30 {
+                    counter += 1;
+                    let order = proto::LimitOrderPayload {
+                        order_id: format!("ms{}", counter),
+                        user_id: format!("mu{}", (counter % 10) + 1),
+                        symbol: "BTC-PERP".to_string(),
+                        quantity: ((i % 5 + 1) as f64) * 0.1,
+                        side: 2,
+                        price: last_price + 1.0 + (i as f64) * 1.0,
+                        tp: None, sl: None,
+                    };
+                    let mut buf = Vec::new();
+                    if order.encode(&mut buf).is_ok() {
+                        let _ = nats.publish("order.limit", buf.into()).await;
+                    }
+                }
+
+                for i in 0..30 {
+                    counter += 1;
+                    let order = proto::LimitOrderPayload {
+                        order_id: format!("mb{}", counter),
+                        user_id: format!("mu{}", (counter % 10) + 1),
+                        symbol: "BTC-PERP".to_string(),
+                        quantity: ((i % 5 + 1) as f64) * 0.1,
+                        side: 1,
+                        price: last_price - 30.0 + (i as f64) * 1.0,
+                        tp: None, sl: None,
+                    };
+                    let mut buf = Vec::new();
+                    if order.encode(&mut buf).is_ok() {
+                        let _ = nats.publish("order.limit", buf.into()).await;
+                    }
+                }
+
+                for i in 0..5 {
+                    counter += 1;
+                    let order = proto::LimitOrderPayload {
+                        order_id: format!("mab{}", counter),
+                        user_id: format!("mu{}", (counter % 10) + 1),
+                        symbol: "BTC-PERP".to_string(),
+                        quantity: 0.5 + (i as f64) * 0.1,
+                        side: 1,
+                        price: last_price + 500.0,
+                        tp: None, sl: None,
+                    };
+                    let mut buf = Vec::new();
+                    if order.encode(&mut buf).is_ok() {
+                        let _ = nats.publish("order.limit", buf.into()).await;
+                    }
+                }
+
+                for i in 0..5 {
+                    counter += 1;
+                    let order = proto::LimitOrderPayload {
+                        order_id: format!("mas{}", counter),
+                        user_id: format!("mu{}", (counter % 10) + 1),
+                        symbol: "BTC-PERP".to_string(),
+                        quantity: 0.5 + (i as f64) * 0.1,
+                        side: 2,
+                        price: last_price - 500.0,
+                        tp: None, sl: None,
+                    };
+                    let mut buf = Vec::new();
+                    if order.encode(&mut buf).is_ok() {
+                        let _ = nats.publish("order.limit", buf.into()).await;
+                    }
+                }
+
+                println!("\n> [MOCK]: pushed 70 orders for BTC-PERP @ {:.2}", last_price);
+            }
+        });
+    }
 
     let sub1 = nats.subscribe("order.*").await.unwrap();
     let mut merged = sub1;

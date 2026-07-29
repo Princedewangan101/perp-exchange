@@ -163,6 +163,10 @@ impl Market {
             let total_qty: f64 = orders.iter().map(|o| o.quantity).sum();
             OrderBookEntry { price: price.to_f64().unwrap_or(0.0), quantity: total_qty }
         }).collect();
+        let best_bid = bids.first().map(|b| b.price).unwrap_or(0.0);
+        let best_ask = asks.first().map(|a| a.price).unwrap_or(0.0);
+        println!("\n> [PUBLISH_OB]: symbol={} best_bid={:.2} best_ask={:.2} bids={} asks={}",
+            symbol, best_bid, best_ask, bids.len(), asks.len());
         if let Ok(payload) = serde_json::to_vec(&OrderBookSnapshot { symbol, bids, asks }) {
             tokio::task::spawn(async move {
                 let _ = nats.publish("orderbook.snapshot", payload.into()).await;
