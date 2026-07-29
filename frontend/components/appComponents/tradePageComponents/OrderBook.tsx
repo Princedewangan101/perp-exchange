@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useOrderBook } from "@/hooks/useOrderBook";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const OrderBook = ({ symbol }: { symbol: string }) => {
   const liveOrderBook = useOrderBook();
@@ -59,6 +60,50 @@ const OrderBook = ({ symbol }: { symbol: string }) => {
   );
 
   const coin = symbol.slice(0, -5);
+
+  // doc: skeleton shown while orderbook data is loading
+  if (!orderBook && isOpen) {
+    return (
+      <div className="bg-zinc-950 px-1 rounded min-w-70 h-150 flex flex-col text-xs">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
+          <Skeleton className="w-7 h-7" />
+          <Skeleton className="w-7 h-7" />
+        </div>
+        <div className="px-3 py-1 flex justify-between border-b border-zinc-800">
+          <Skeleton className="w-20 h-3" />
+          <Skeleton className="w-14 h-3" />
+          <Skeleton className="w-14 h-3" />
+        </div>
+        <div className="h-full overflow-hidden px-3 py-1">
+          {Array.from({ length: 18 }).map((_, i) => (
+            <div key={i} className="flex justify-between py-0.5 items-center relative">
+              <Skeleton className="w-16 h-3" />
+              <Skeleton className="w-10 h-3" />
+              <Skeleton className="w-10 h-3" />
+              <div
+                className="absolute right-0 h-full rounded bg-red-950/60 animate-pulse"
+                style={{ width: `${20 + i * 12}%` }}
+              />
+            </div>
+          ))}
+          <div className="flex items-center justify-center py-1">
+            <Skeleton className="w-24 h-4" />
+          </div>
+          {Array.from({ length: 18 }).map((_, i) => (
+            <div key={i} className="flex justify-between py-0.5 items-center relative">
+              <Skeleton className="w-16 h-3" />
+              <Skeleton className="w-10 h-3" />
+              <Skeleton className="w-10 h-3" />
+              <div
+                className="absolute right-0 h-full rounded bg-green-950/60 animate-pulse"
+                style={{ width: `${40 - i * 6}%` }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (!isOpen) {
     return (
