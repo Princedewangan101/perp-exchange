@@ -26,6 +26,7 @@ use handlers::signin::signin;
 use handlers::signup::signup;
 use handlers::transactions::fetch_transactions;
 use handlers::withdraw::withdraw;
+use handlers::orderbook::get_orderbook_data;
 use handlers::ws::{WsManager, spawn_nats_subscribers, ws_handler};
 use middlewares::alt_auth_mw::alt_auth;
 
@@ -95,6 +96,7 @@ async fn main() {
         .route("/api/signup", post(signup))
         .route("/api/signin", post(signin))
         .route("/ws", get(ws_handler))
+        .route("/api/orderbook", get(get_orderbook_data))
         .merge(protected)
         .layer(cors)
         .with_state(state);

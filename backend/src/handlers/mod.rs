@@ -3,6 +3,7 @@ pub mod deposit;
 pub mod limit;
 pub mod market;
 pub mod modify;
+pub mod orderbook;
 pub mod orders;
 pub mod signin;
 pub mod signup;

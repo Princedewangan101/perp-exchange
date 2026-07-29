@@ -193,6 +193,7 @@ pub fn spawn_nats_subscribers(state: &AppState) {
     {
         let nats = state.nats.clone();
         let wm = state.ws_manager.clone();
+        let redis = state.redis.clone();
         tokio::spawn(async move {
             let mut sub = match nats.subscribe("orderbook.snapshot").await {
                 Ok(s) => s,
@@ -201,6 +202,12 @@ pub fn spawn_nats_subscribers(state: &AppState) {
             while let Some(msg) = sub.next().await {
                 if let Ok(ob) = serde_json::from_slice::<OrderBookData>(&msg.payload) {
                     if let Ok(json) = serde_json::to_string(&WsEvent::OrderBook(ob)) {
+                        let mut conn = redis.as_ref().clone();
+                        let _ = redis::cmd("SET")
+                            .arg("orderbook.snapshot")
+                            .arg(&json)
+                            .query_async::<()>(&mut conn)
+                            .await;
                         *wm.last_orderbook.write().await = Some(json.clone());
                         wm.broadcast(&json).await;
                     }

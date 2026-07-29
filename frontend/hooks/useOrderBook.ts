@@ -18,6 +18,15 @@ export function useOrderBook() {
   const [orderBook, setOrderBook] = useState<OrderBookData | null>(null);
 
   useEffect(() => {
+    fetch("http://localhost:5000/api/orderbook")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.event_type === "OrderBook") {
+          setOrderBook(data as OrderBookData);
+        }
+      })
+      .catch(() => {});
+
     const handler = (data: unknown) => {
       setOrderBook(data as OrderBookData);
     };
