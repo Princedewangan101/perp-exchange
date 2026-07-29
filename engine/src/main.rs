@@ -8,6 +8,7 @@ use serde::Deserialize;
 mod mock_order;
 mod order_book;
 mod proto;
+use mock_order::seed_limit_orders;
 use order_book::Market;
 use proto::{LimitOrderPayload, LimitOrderResult};
 
@@ -43,6 +44,13 @@ async fn main() {
 async fn engine() {
     let nats = async_nats::connect("127.0.0.1:4222").await.unwrap();
     let mut markets: HashMap<String, Market> = HashMap::new();
+
+    {
+        let mut market = Market::new("BTCUSDT".to_string(), nats.clone());
+        seed_limit_orders(&mut market);
+        markets.insert("BTCUSDT".to_string(), market);
+        println!("\n> [ENGINE]: seeded BTCUSDT order book with limit orders");
+    }
 
     let sub1 = nats.subscribe("order.*").await.unwrap();
     let mut merged = sub1;

@@ -79,6 +79,7 @@ pub struct WsManager {
     sessions: RwLock<HashMap<u64, Session>>,
     by_user: RwLock<HashMap<String, Vec<u64>>>,
     next_id: AtomicU64,
+    pub last_orderbook: RwLock<Option<String>>,
 }
 
 impl WsManager {
@@ -87,6 +88,7 @@ impl WsManager {
             sessions: RwLock::new(HashMap::new()),
             by_user: RwLock::new(HashMap::new()),
             next_id: AtomicU64::new(1),
+            last_orderbook: RwLock::new(None),
         })
     }
 
@@ -196,6 +198,7 @@ pub fn spawn_nats_subscribers(state: &AppState) {
             while let Some(msg) = sub.next().await {
                 if let Ok(ob) = serde_json::from_slice::<OrderBookData>(&msg.payload) {
                     if let Ok(json) = serde_json::to_string(&WsEvent::OrderBook(ob)) {
+                        *wm.last_orderbook.write().await = Some(json.clone());
                         wm.broadcast(&json).await;
                     }
                 }
@@ -238,7 +241,12 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: Option<Strin
     let (event_tx, mut event_rx) = mpsc::unbounded_channel::<String>();
 
     // Register this connection so global NATS tasks can reach it
-    let conn_id = state.ws_manager.register(event_tx, user_id).await;
+    let conn_id = state.ws_manager.register(event_tx.clone(), user_id).await;
+
+    // Send the latest orderbook snapshot immediately on connect
+    if let Some(snapshot) = state.ws_manager.last_orderbook.read().await.clone() {
+        let _ = event_tx.send(snapshot);
+    }
 
     loop {
         tokio::select! {
