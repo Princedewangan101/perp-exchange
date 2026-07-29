@@ -8,10 +8,14 @@ export function useRealtime() {
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
-    if (!token) return;
+    if (!token) {
+      console.warn("[WS_FE]: no auth_token found, skipping WebSocket connection");
+      return;
+    }
 
     realtime.connect(token);
     setConnected(true);
+    console.log("[WS_FE]: connected with token");
 
     return () => {
       realtime.disconnect();

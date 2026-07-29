@@ -95,6 +95,7 @@ impl WsManager {
     /// Register a new WebSocket session and return its unique ID
     pub async fn register(&self, tx: mpsc::UnboundedSender<String>, user_id: Option<String>) -> u64 {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
+        println!("\n> [WS_REGISTER]: conn_id={} user_id={:?} total_sessions={}", id, user_id, self.sessions.read().await.len() + 1);
         self.sessions.write().await.insert(id, Session {
             tx,
             user_id: user_id.clone(),
@@ -123,6 +124,7 @@ impl WsManager {
     /// Send a message to every connected client
     pub async fn broadcast(&self, msg: &str) {
         let sessions = self.sessions.read().await;
+        // println!("\n> [WS_BROADCAST]: sending to {} client(s)", sessions.len());
         for session in sessions.values() {
             let _ = session.tx.send(msg.to_string());
         }
@@ -157,6 +159,7 @@ pub fn spawn_nats_subscribers(state: &AppState) {
         };
         while let Some(msg) = sub.next().await {
             if let Ok(price) = serde_json::from_slice::<LivePrice>(&msg.payload) {
+                // println!("\n> [WS_LIVE_PRICE]: received from NATS symbol={} price={}", price.symbol, price.price);
                 if let Ok(json) = serde_json::to_string(&WsEvent::LivePrice(price)) {
                     wm.broadcast(&json).await;
                 }
@@ -216,19 +219,27 @@ pub async fn ws_handler(
     // Validate JWT if token was provided (optional auth)
     let user_id = match &query.token {
         Some(token) => {
-            let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
+            println!("\n> [WS_HANDLER]: connection attempt with token={}", token);
+            let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret_key".to_string());
             match decode::<Claims>(
                 token,
                 &DecodingKey::from_secret(jwt_secret.as_bytes()),
                 &Validation::default(),
             ) {
-                Ok(data) => Some(data.claims.user_id),
-                Err(_) => {
+                Ok(data) => {
+                    println!("\n> [WS_HANDLER]: token valid, user_id={}", data.claims.user_id);
+                    Some(data.claims.user_id)
+                }
+                Err(e) => {
+                    println!("\n> [WS_HANDLER]: token invalid: {:?}", e);
                     return (StatusCode::UNAUTHORIZED, "invalid token").into_response();
                 }
             }
         }
-        None => None,
+        None => {
+            println!("\n> [WS_HANDLER]: no token provided, connecting anonymously");
+            None
+        }
     };
 
     ws.on_upgrade(move |socket| handle_socket(socket, state, user_id))

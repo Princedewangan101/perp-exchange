@@ -36,6 +36,7 @@ class RealtimeClient {
     this.ws = new WebSocket(`ws://localhost:5000/ws?token=${this.token}`);
 
     this.ws.onopen = () => {
+      console.log("[WS_CLIENT]: connected");
       this.reconnectAttempts = 0;
     };
 
@@ -43,6 +44,7 @@ class RealtimeClient {
       try {
         const data = JSON.parse(event.data);
         const eventType = data.event_type as string;
+        console.log("[WS_CLIENT]: received event_type=", eventType, data);
         if (eventType && this.listeners.has(eventType)) {
           for (const cb of this.listeners.get(eventType)!) {
             cb(data);
@@ -53,13 +55,15 @@ class RealtimeClient {
       }
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (e) => {
+      console.warn("[WS_CLIENT]: closed", e.code, e.reason);
       if (this.shouldReconnect) {
         this.scheduleReconnect();
       }
     };
 
     this.ws.onerror = () => {
+      console.error("[WS_CLIENT]: error");
       this.ws?.close();
     };
   }
