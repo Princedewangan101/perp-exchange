@@ -7,6 +7,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { config } from '@/lib/config';
 import { handleError } from '@/app/utils/errorHandler';
+import { useLivePrice } from '@/hooks/useLivePrice';
 
 type mutationFnData = {
     orderType: string;
@@ -27,6 +28,8 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
     const [price, setPrice] = React.useState<number>();
     const [tp, setTp] = React.useState<number>();
     const [sl, setSl] = React.useState<number>();
+    const livePrice = useLivePrice();
+    const markPrice = livePrice?.price ?? 67000;
 
     function handleSide() {
         return side === "BUY" ? setSide("SELL") : setSide("BUY");
@@ -194,16 +197,16 @@ const OrderPanel = ({ symbol }: { symbol: string }) => {
                     <div className='px-3 py-1.5 bg-zinc-s text-gray-300 rounded-md'>
                         <div className='text-sm mb-1 flex justify-between'>
                             <p>Mark Price</p>
-                            <p>67000<span className='text-xs'>$</span></p>
+                            <p>{markPrice.toFixed(2)}<span className='text-xs'>$</span></p>
                         </div>
                         <div className='text-sm mb-1 flex justify-between'>
                             <p>Order Price</p>
                             <p>quantity : {quantity}</p>
-                            <p>{67000 * Number(quantity)}<span className='text-xs'>$</span></p>
+                            <p>{(markPrice * Number(quantity)).toFixed(2)}<span className='text-xs'>$</span></p>
                         </div>
                         <div className='text-sm mb-1 flex justify-between'>
                             <p>Mrgin Required</p>
-                            <p>{((67000 * Number(quantity)) / leverage).toFixed(2)}<span className='text-xs'>$</span></p>
+                            <p>{((markPrice * Number(quantity)) / leverage).toFixed(2)}<span className='text-xs'>$</span></p>
                         </div>
                         <div className='text-sm mb-1 flex justify-between'>
                             <p>Fee</p>
