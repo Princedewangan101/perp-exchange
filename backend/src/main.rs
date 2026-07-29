@@ -42,6 +42,37 @@ pub struct AppState {
     pub ws_manager: Arc<WsManager>,
 }
 
+/// Seed 3 bid and 3 ask dummy orders into Redis under key `"orderbook.snapshot"`.
+///
+/// Called once at startup so that `GET /api/orderbook` always returns data
+/// even when the matching engine is not running. The format matches the
+/// `WsEvent::OrderBook` shape consumed by the frontend.
+async fn seed_dummy_orderbook(redis: &ConnectionManager) {
+    let dummy = serde_json::json!({
+        "event_type": "OrderBook",
+        "symbol": "BTC-PERP",
+        "bids": [
+            { "price": 62000.0, "quantity": 1.5 },
+            { "price": 61850.0, "quantity": 2.3 },
+            { "price": 61500.0, "quantity": 0.8 },
+        ],
+        "asks": [
+            { "price": 63500.0, "quantity": 1.2 },
+            { "price": 63800.0, "quantity": 0.9 },
+            { "price": 64200.0, "quantity": 2.1 },
+        ],
+    });
+    if let Ok(json) = serde_json::to_string(&dummy) {
+        let mut conn = redis.clone();
+        let _ = redis::cmd("SET")
+            .arg("orderbook.snapshot")
+            .arg(&json)
+            .query_async::<()>(&mut conn)
+            .await;
+        println!("\n>> seeded dummy orderbook into Redis (3 bids + 3 asks)");
+    }
+}
+
 #[tokio::main]
 async fn main() {
     println!("\n>> run redis and nats");
@@ -52,6 +83,9 @@ async fn main() {
         .expect("[CRITICAL]  Failed to connect to the PostgreSQL database server");
     let redis_cm = connect_redis().await.unwrap();
     let nats_cm = connect_nats().await.unwrap();
+
+    // ── Seed dummy orderbook into Redis for testing ──────────────────
+    seed_dummy_orderbook(&redis_cm).await;
 
     // ── WebSocket session manager ─────────────────────────────────────
     let ws_manager = WsManager::new();
