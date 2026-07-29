@@ -2,6 +2,7 @@ pub mod close_order;
 pub mod common;
 pub mod create_user;
 pub mod deposit_balance;
+pub mod fetch_balance;
 pub mod fetch_orders;
 pub mod fetch_transactions;
 pub mod find_user;

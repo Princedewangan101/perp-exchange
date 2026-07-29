@@ -15,7 +15,7 @@ export function useLivePrice() {
   useEffect(() => {
     const handler = (data: unknown) => {
       const p = data as LivePriceData;
-      console.log("[WS_FE_LIVE_PRICE]: received", p);
+      // console.log("[WS_FE_LIVE_PRICE]: received", p);
       setPrice(p);
     };
 

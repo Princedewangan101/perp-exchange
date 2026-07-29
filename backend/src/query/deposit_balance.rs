@@ -14,7 +14,7 @@ pub struct DepositBalanceResponse {
 }
 
 pub async fn deposit_balance(postgres_client: &Client, req: DepositBalanceRequest) -> DepositBalanceResponse {
-    println!("\n>[INFO] deposit route , TRIGGERED\n amount: {}", req.amount);
+    // println!("\n>[INFO] deposit route , TRIGGERED\n amount: {}", req.amount);
     let user_id: i32 = match req.user_id.parse() {
         Ok(id) => id,
         Err(_) => {
@@ -33,7 +33,7 @@ pub async fn deposit_balance(postgres_client: &Client, req: DepositBalanceReques
         .await;
     match post_query_result {
         Ok(row) => {
-            println!("\n>[INFO] deposit route , SUCCESS");
+            // println!("\n>[INFO] deposit route , SUCCESS");
             let balance = row.get::<_, f64>(0);
             DepositBalanceResponse {
                 success: true,

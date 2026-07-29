@@ -95,7 +95,7 @@ impl WsManager {
     /// Register a new WebSocket session and return its unique ID
     pub async fn register(&self, tx: mpsc::UnboundedSender<String>, user_id: Option<String>) -> u64 {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        println!("\n> [WS_REGISTER]: conn_id={} user_id={:?} total_sessions={}", id, user_id, self.sessions.read().await.len() + 1);
+        // println!("\n> [WS_REGISTER]: conn_id={} user_id={:?} total_sessions={}", id, user_id, self.sessions.read().await.len() + 1);
         self.sessions.write().await.insert(id, Session {
             tx,
             user_id: user_id.clone(),
@@ -226,7 +226,7 @@ pub async fn ws_handler(
     // Validate JWT if token was provided (optional auth)
     let user_id = match &query.token {
         Some(token) => {
-            println!("\n> [WS_HANDLER]: connection attempt with token={}", token);
+            // println!("\n> [WS_HANDLER]: connection attempt with token={}", token);
             let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret_key".to_string());
             match decode::<Claims>(
                 token,
@@ -234,7 +234,7 @@ pub async fn ws_handler(
                 &Validation::default(),
             ) {
                 Ok(data) => {
-                    println!("\n> [WS_HANDLER]: token valid, user_id={}", data.claims.user_id);
+                    // println!("\n> [WS_HANDLER]: token valid, user_id={}", data.claims.user_id);
                     Some(data.claims.user_id)
                 }
                 Err(e) => {
@@ -244,7 +244,7 @@ pub async fn ws_handler(
             }
         }
         None => {
-            println!("\n> [WS_HANDLER]: no token provided, connecting anonymously");
+            // println!("\n> [WS_HANDLER]: no token provided, connecting anonymously");
             None
         }
     };

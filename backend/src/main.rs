@@ -16,6 +16,7 @@ mod query;
 use config::db::postgres::connect_postgres;
 use config::nats::connect_nats;
 use config::redis::connect_redis;
+use handlers::balance::get_balance;
 use handlers::close::close;
 use handlers::deposit::deposit;
 use handlers::limit::limit;
@@ -165,6 +166,7 @@ async fn main() {
         .route("/api/close", post(close))
         .route("/api/orders", get(fetch_orders))
         .route("/api/transactions", post(fetch_transactions))
+        .route("/api/balance", get(get_balance))
         .layer(middleware::from_fn(alt_auth))
         .with_state(state.clone());
 

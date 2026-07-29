@@ -15,7 +15,7 @@ export function useRealtime() {
 
     realtime.connect(token);
     setConnected(true);
-    console.log("[WS_FE]: connected with token");
+    // console.log("[WS_FE]: connected with token");
 
     return () => {
       realtime.disconnect();

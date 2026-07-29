@@ -36,7 +36,7 @@ class RealtimeClient {
     this.ws = new WebSocket(`ws://localhost:5000/ws?token=${this.token}`);
 
     this.ws.onopen = () => {
-      console.log("[WS_CLIENT]: connected");
+      // console.log("[WS_CLIENT]: connected");
       this.reconnectAttempts = 0;
     };
 
@@ -44,7 +44,7 @@ class RealtimeClient {
       try {
         const data = JSON.parse(event.data);
         const eventType = data.event_type as string;
-        console.log("[WS_CLIENT]: received event_type=", eventType, data);
+        // console.log("[WS_CLIENT]: received event_type=", eventType, data);
         if (eventType && this.listeners.has(eventType)) {
           for (const cb of this.listeners.get(eventType)!) {
             cb(data);

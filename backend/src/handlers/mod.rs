@@ -1,3 +1,4 @@
+pub mod balance;
 pub mod close;
 pub mod deposit;
 pub mod limit;
