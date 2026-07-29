@@ -2,7 +2,7 @@
 
 import { Toaster } from "react-hot-toast";
 import { useRealtime } from "@/hooks/useRealtime";
-import { useRealtimeEvents } from "@/hooks/useRealtimeEvents";
+import { useOrderFilled } from "@/hooks/useOrderFilled";
 
 export default function PagesLayout({
   children,
@@ -10,7 +10,7 @@ export default function PagesLayout({
   children: React.ReactNode;
 }>) {
   useRealtime();
-  useRealtimeEvents();
+  useOrderFilled();
 
   return <>
     {children}

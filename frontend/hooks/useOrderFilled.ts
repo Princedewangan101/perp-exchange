@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import toast from "react-hot-toast";
 import { realtime } from "@/lib/realtime";
 
-export function useRealtimeEvents() {
+export function useOrderFilled() {
   useEffect(() => {
     const handler = (data: unknown) => {
       const fill = data as Record<string, unknown>;
